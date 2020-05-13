@@ -90,7 +90,7 @@ namespace Orleans.Runtime
             return Task.FromResult(implicitStreamSubscriberTable);
         }
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
         {
             hasToRefreshClusterGrainInterfaceMap = true;
             if (status == SiloStatus.Active && !updatedSilo.Equals(this.Silo))

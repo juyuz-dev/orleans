@@ -1,4 +1,4 @@
-﻿namespace Orleans.Runtime
+namespace Orleans.Runtime
 {
     /// <summary>
     /// Interface for types which listen to silo status change notifications.
@@ -13,6 +13,7 @@
         /// </summary>
         /// <param name="updatedSilo">A silo to update about.</param>
         /// <param name="status">The status of a silo.</param>
-        void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status);
+        /// <param name="region">the physical region</param>
+        void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region);
     }
 }

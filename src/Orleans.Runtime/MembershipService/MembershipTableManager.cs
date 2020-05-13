@@ -440,6 +440,7 @@ namespace Orleans.Runtime.MembershipService
 
                 HostName = this.localSiloDetails.DnsHostName,
                 SiloName = this.localSiloDetails.Name,
+                Region = this.localSiloDetails.Region,
 
                 Status = currentStatus,
                 ProxyPort = this.localSiloDetails.GatewayAddress?.Endpoint?.Port ?? 0,

@@ -19,6 +19,7 @@ namespace Orleans.Runtime
             this.Name = siloOptions.Value.SiloName;
             this.ClusterId = clusterOptions.Value.ClusterId;
             this.DnsHostName = Dns.GetHostName();
+            this.Region = clusterOptions.Value.Region;
 
             var endpointOptions = siloEndpointOptions.Value;
             this.siloAddressLazy = new Lazy<SiloAddress>(() => SiloAddress.New(endpointOptions.GetPublicSiloEndpoint(), SiloAddress.AllocateNewGeneration()));
@@ -36,6 +37,8 @@ namespace Orleans.Runtime
 
         /// <inheritdoc />
         public string ClusterId { get; }
+
+        public string Region { get; }
 
         /// <inheritdoc />
         public string DnsHostName { get; }

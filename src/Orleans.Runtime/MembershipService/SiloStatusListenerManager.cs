@@ -117,7 +117,7 @@ namespace Orleans.Runtime.MembershipService
 
                     try
                     {
-                        listener.SiloStatusChangeNotification(change.SiloAddress, change.Status);
+                        listener.SiloStatusChangeNotification(change.SiloAddress, change.Status, change.Region);
                     }
                     catch (Exception exception)
                     {

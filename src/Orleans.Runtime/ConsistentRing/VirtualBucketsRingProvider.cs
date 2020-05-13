@@ -217,7 +217,7 @@ namespace Orleans.Runtime.ConsistentRing
             return ranges;
         }
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
         {
             // This silo's status has changed
             if (updatedSilo.Equals(myAddress))

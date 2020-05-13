@@ -421,7 +421,7 @@ namespace Orleans.Runtime.GrainDirectory
             return result;
         }
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
         {
             // This silo's status has changed
             if (!Equals(updatedSilo, MyAddress)) // Status change for some other silo

@@ -47,7 +47,7 @@ namespace UnitTests.Directory
         {
             var dictBuilder = ImmutableDictionary.CreateBuilder<SiloAddress, ClusterMember>();
             foreach (var kvp in statuses)
-                dictBuilder.Add(kvp.Key, new ClusterMember(kvp.Key, kvp.Value));
+                dictBuilder.Add(kvp.Key, new ClusterMember(kvp.Key, kvp.Value, string.Empty));
 
             return new ClusterMembershipSnapshot(dictBuilder.ToImmutable(), new MembershipVersion(version));
         }

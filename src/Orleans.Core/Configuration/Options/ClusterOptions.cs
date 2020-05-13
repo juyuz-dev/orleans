@@ -20,6 +20,11 @@ namespace Orleans.Configuration
         internal const string DevelopmentServiceId = "dev";
 
         /// <summary>
+        /// Gets or sets the cluster region. This is used to group silos in different region.
+        /// </summary>
+        public string Region { get; set; }
+
+        /// <summary>
         /// Gets or sets the cluster identity. This used to be called DeploymentId before Orleans 2.0 name.
         /// </summary>
         public string ClusterId { get; set; }

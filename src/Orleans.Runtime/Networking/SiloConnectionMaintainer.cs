@@ -38,7 +38,7 @@ namespace Orleans.Runtime.Messaging
             lifecycle.Subscribe(nameof(SiloConnectionMaintainer), ServiceLifecycleStage.RuntimeInitialize, this);
         }
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
         {
             if (status == SiloStatus.Dead)
             {

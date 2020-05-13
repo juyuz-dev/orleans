@@ -16,6 +16,12 @@ namespace Orleans.Runtime
         string ClusterId { get; }
 
         /// <summary>
+        /// Gets the cluster region.
+        /// This is the physical region for this silo.
+        /// </summary>
+        string Region { get; }
+
+        /// <summary>
         /// The DNS host name of this silo.
         /// This is a true host name, no IP address. Equals Dns.GetHostName().
         /// </summary>
