@@ -771,7 +771,7 @@ namespace UnitTests.SchedulerTests
         private class MockSiloDetails : ILocalSiloDetails
         {
             public string DnsHostName { get; }
-            public string Region { get; }
+            public int Region { get; }
             public SiloAddress SiloAddress { get; set; }
             public SiloAddress GatewayAddress { get; }
             public string Name { get; set; } = Guid.NewGuid().ToString();

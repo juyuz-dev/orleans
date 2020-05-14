@@ -18,23 +18,28 @@ namespace Orleans.Runtime
         /// <summary>
         /// Creates a new <see cref="GrainType"/> instance.
         /// </summary>
-        public GrainId(GrainType type, IdSpan key)
+        public GrainId(GrainType type, IdSpan key, int region)
         {
             Type = type;
             Key = key;
+            Region = region;
         }
 
         /// <summary>
         /// Creates a new <see cref="GrainType"/> instance.
         /// </summary>
-        public GrainId(byte[] type, byte[] key) : this(new GrainType(type), new IdSpan(key))
+        public GrainId(byte[] type, byte[] key) : this(new GrainType(type), new IdSpan(key), 0)
         {
         }
 
         /// <summary>
         /// Creates a new <see cref="GrainType"/> instance.
         /// </summary>
-        public GrainId(GrainType type, byte[] key) : this(type, new IdSpan(key))
+        public GrainId(GrainType type, byte[] key) : this(type, new IdSpan(key), 0)
+        {
+        }
+
+        public GrainId(GrainType type, byte[] key, int region) : this(type, new IdSpan(key), region)
         {
         }
 
@@ -45,6 +50,7 @@ namespace Orleans.Runtime
         {
             Type = new GrainType(IdSpan.UnsafeCreate((byte[])info.GetValue("tv", typeof(byte[])), info.GetInt32("th")));
             Key = IdSpan.UnsafeCreate((byte[])info.GetValue("kv", typeof(byte[])), info.GetInt32("kh"));
+            Region = info.GetInt32("rv");
         }
 
         /// <summary>
@@ -56,6 +62,8 @@ namespace Orleans.Runtime
         /// The key.
         /// </summary>
         public IdSpan Key { get; }
+
+        public int Region { get; }
 
         // TODO: remove implicit conversion (potentially make explicit to start with)
         public static implicit operator LegacyGrainId(GrainId id) => LegacyGrainId.FromGrainId(id);
@@ -73,7 +81,9 @@ namespace Orleans.Runtime
         /// <summary>
         /// Creates a new <see cref="GrainType"/> instance.
         /// </summary>
-        public static GrainId Create(GrainType type, IdSpan key) => new GrainId(type, key);
+        public static GrainId Create(GrainType type, IdSpan key) => new GrainId(type, key, 0);
+
+        public static GrainId Create(GrainType type, IdSpan key, int region) => new GrainId(type, key, region);
 
         /// <summary>
         /// <see langword="true"/> if this instance is the default value, <see langword="false"/> if it is not.
@@ -99,6 +109,7 @@ namespace Orleans.Runtime
             info.AddValue("th", Type.GetHashCode());
             info.AddValue("kv", IdSpan.UnsafeGetArray(Key));
             info.AddValue("kh", Key.GetHashCode());
+            info.AddValue("rv", Region);
         }
 
         /// <inheritdoc/>

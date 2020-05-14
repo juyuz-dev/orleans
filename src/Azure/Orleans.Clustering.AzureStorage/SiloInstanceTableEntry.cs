@@ -27,6 +27,8 @@ namespace Orleans.AzureUtils
         public string SuspectingSilos { get; set; }          // For liveness
         public string SuspectingTimes { get; set; }          // For liveness
 
+        public int Region { get; set; }
+
         public string StartTime       { get; set; }          // Time this silo was started. For diagnostics.
         public string IAmAliveTime    { get; set; }           // Time this silo updated it was alive. For diagnostics.
         public string MembershipVersion      { get; set; }               // Special version row (for serializing table updates). // We'll have a designated row with only MembershipVersion column.
@@ -93,6 +95,7 @@ namespace Orleans.AzureUtils
                 sb.Append(" ProxyPort=").Append(ProxyPort);
 
                 if (!string.IsNullOrEmpty(RoleName)) sb.Append(" RoleName=").Append(RoleName);
+                sb.Append(" Region=").Append(Region);
                 sb.Append(" SiloName=").Append(SiloName);
                 sb.Append(" UpgradeZone=").Append(UpdateZone);
                 sb.Append(" FaultZone=").Append(FaultZone);

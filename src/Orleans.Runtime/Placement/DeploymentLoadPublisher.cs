@@ -212,7 +212,7 @@ namespace Orleans.Runtime
         }
 
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, int region)
         {
             this.ScheduleTask(() => { Utils.SafeExecute(() => this.OnSiloStatusChange(updatedSilo, status), this.logger); }).Ignore();
         }

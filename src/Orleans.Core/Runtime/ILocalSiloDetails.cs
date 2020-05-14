@@ -19,7 +19,7 @@ namespace Orleans.Runtime
         /// Gets the cluster region.
         /// This is the physical region for this silo.
         /// </summary>
-        string Region { get; }
+        int Region { get; }
 
         /// <summary>
         /// The DNS host name of this silo.

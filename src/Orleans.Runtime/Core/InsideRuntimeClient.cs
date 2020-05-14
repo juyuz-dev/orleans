@@ -67,6 +67,7 @@ namespace Orleans.Runtime
             IOptions<SiloMessagingOptions> messagingOptions,
             IGrainCancellationTokenRuntime cancellationTokenRuntime,
             IOptions<SchedulingOptions> schedulerOptions,
+            IOptions<ClusterOptions> clusterOptions,
             ApplicationRequestsStatisticsGroup appRequestStatistics,
             MessagingTrace messagingTrace)
         {
@@ -78,7 +79,7 @@ namespace Orleans.Runtime
             this.messageFactory = messageFactory;
             this.transactionAgent = transactionAgent;
             this.Scheduler = scheduler;
-            this.ConcreteGrainFactory = new GrainFactory(this, typeMetadataCache);
+            this.ConcreteGrainFactory = new GrainFactory(this, typeMetadataCache, clusterOptions);
             this.logger = loggerFactory.CreateLogger<InsideRuntimeClient>();
             this.invokeExceptionLogger = loggerFactory.CreateLogger($"{typeof(Grain).FullName}.InvokeException");
             this.loggerFactory = loggerFactory;

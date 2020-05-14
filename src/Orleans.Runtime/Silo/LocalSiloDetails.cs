@@ -38,7 +38,7 @@ namespace Orleans.Runtime
         /// <inheritdoc />
         public string ClusterId { get; }
 
-        public string Region { get; }
+        public int Region { get; }
 
         /// <inheritdoc />
         public string DnsHostName { get; }

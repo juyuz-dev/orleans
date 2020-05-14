@@ -9,6 +9,8 @@ namespace Orleans.Runtime
         public ActivationId Activation { get; private set; }
         public SiloAddress Silo { get; private set; }
 
+        public bool IsRegionalLocal { get; set; }
+
         public bool IsComplete
         {
             get { return Grain != null && Activation != null && Silo != null; }

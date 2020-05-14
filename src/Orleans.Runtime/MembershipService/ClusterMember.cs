@@ -5,7 +5,7 @@ namespace Orleans.Runtime
     [Serializable]
     public sealed class ClusterMember : IEquatable<ClusterMember>
     {
-        public ClusterMember(SiloAddress siloAddress, SiloStatus status, string region)
+        public ClusterMember(SiloAddress siloAddress, SiloStatus status, int region)
         {
             this.SiloAddress = siloAddress ?? throw new ArgumentNullException(nameof(siloAddress));
             this.Status = status;
@@ -15,7 +15,7 @@ namespace Orleans.Runtime
         public SiloAddress SiloAddress { get; }
         public SiloStatus Status { get; }
 
-        public string Region { get; }
+        public int Region { get; }
 
         public override bool Equals(object obj) => this.Equals(obj as ClusterMember);
 

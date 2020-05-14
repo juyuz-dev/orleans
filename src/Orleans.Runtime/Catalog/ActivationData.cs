@@ -140,6 +140,8 @@ namespace Orleans.Runtime
                     this.collector = null;
                 }
             }
+
+            this.Address.IsRegionalLocal = typeData.IsRegionalLocal;
         }
 
         private static void SetGrainActivationContextInScopedServices(IServiceProvider sp, IGrainActivationContext context)

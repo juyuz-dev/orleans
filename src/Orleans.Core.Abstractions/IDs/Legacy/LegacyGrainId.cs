@@ -28,6 +28,8 @@ namespace Orleans.Runtime
 
         public bool IsClient => Category == UniqueKey.Category.Client;
 
+        public int Region { get; set; }
+
         internal LegacyGrainId(UniqueKey key)
         {
             this.Key = key;
@@ -188,7 +190,7 @@ namespace Orleans.Runtime
 
         public GrainId ToGrainId()
         {
-            var id = GrainId.Create(this.GetGrainType(), this.GetGrainKey());
+            var id = GrainId.Create(this.GetGrainType(), this.GetGrainKey(), this.Region);
             return id;
         }
 
@@ -269,7 +271,12 @@ namespace Orleans.Runtime
                 }
             }
 
-            return new LegacyGrainId(UniqueKey.NewKey(n0, n1, typeCodeData, keyExt));
+            int region = id.Region;
+
+            var result = new LegacyGrainId(UniqueKey.NewKey(n0, n1, typeCodeData, keyExt));
+            result.Region = region;
+
+            return result;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]

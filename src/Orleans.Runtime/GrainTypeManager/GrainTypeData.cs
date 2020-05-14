@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-
+using System.Runtime.CompilerServices;
 using Orleans.CodeGeneration;
 using Orleans.Concurrency;
 using Orleans.GrainDirectory;
@@ -23,6 +23,8 @@ namespace Orleans.Runtime
         internal bool IsStatelessWorker { get; private set; }
         internal Func<InvokeMethodRequest, bool> MayInterleave { get; private set; }
 
+        internal bool IsRegionalLocal { get; private set; }
+
         public GrainTypeData(Type type)
         {
             Type = type;
@@ -32,6 +34,15 @@ namespace Orleans.Runtime
             this.GrainClass = TypeUtils.GetFullName(type);
             RemoteInterfaceTypes = GetRemoteInterfaces(type);
             this.MayInterleave = GetMayInterleavePredicate(type) ?? (_ => false);
+
+            foreach (var interfaceType in RemoteInterfaceTypes)
+            {
+                if (interfaceType.IsDefined(typeof(RegionalLocalAttribute)))
+                {
+                    this.IsRegionalLocal = true;
+                    break;
+                }
+            }
         }
 
         /// <summary>
@@ -134,8 +145,8 @@ namespace Orleans.Runtime
                     $"Class {grainType.FullName} doesn't declare public static method " +
                     $"with name {callbackMethodName} specified in MayInterleave attribute");
 
-            if (method.ReturnType != typeof(bool) || 
-                method.GetParameters().Length != 1 || 
+            if (method.ReturnType != typeof(bool) ||
+                method.GetParameters().Length != 1 ||
                 method.GetParameters()[0].ParameterType != typeof(InvokeMethodRequest))
                 throw new InvalidOperationException(
                     $"Wrong signature of callback method {callbackMethodName} " +

@@ -221,6 +221,7 @@ namespace Orleans.Runtime.MembershipService
 
             parse.SiloAddress = SiloAddress.New(new IPEndPoint(IPAddress.Parse(tableEntry.Address), port), gen);
 
+            parse.Region = tableEntry.Region;
             parse.RoleName = tableEntry.RoleName;
             if (!string.IsNullOrEmpty(tableEntry.SiloName))
             {
@@ -290,7 +291,8 @@ namespace Orleans.Runtime.MembershipService
                 UpdateZone = memEntry.UpdateZone.ToString(CultureInfo.InvariantCulture),
                 FaultZone = memEntry.FaultZone.ToString(CultureInfo.InvariantCulture),
                 StartTime = LogFormatter.PrintDate(memEntry.StartTime),
-                IAmAliveTime = LogFormatter.PrintDate(memEntry.IAmAliveTime)
+                IAmAliveTime = LogFormatter.PrintDate(memEntry.IAmAliveTime),
+                Region = memEntry.Region
             };
 
             if (memEntry.SuspectTimes != null)

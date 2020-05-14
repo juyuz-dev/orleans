@@ -14,6 +14,6 @@ namespace Orleans.Runtime
         /// <param name="updatedSilo">A silo to update about.</param>
         /// <param name="status">The status of a silo.</param>
         /// <param name="region">the physical region</param>
-        void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region);
+        void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, int region);
     }
 }

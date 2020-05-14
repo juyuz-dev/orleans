@@ -277,7 +277,7 @@ namespace Orleans
         /// <summary>
         /// The physical region of this silo.
         /// </summary>
-        public string Region { get; set; }
+        public int Region { get; set; }
 
         /// <summary>
         /// the name of the specific silo instance within a cluster. 

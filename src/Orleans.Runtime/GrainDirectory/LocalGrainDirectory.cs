@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
+using Orleans.Configuration;
 using Orleans.GrainDirectory;
 using Orleans.Runtime.Scheduler;
-using Orleans.Configuration;
-using System.Collections.Immutable;
 
 namespace Orleans.Runtime.GrainDirectory
 {
@@ -120,7 +121,7 @@ namespace Orleans.Runtime.GrainDirectory
             {
                 this.seed = this.MyAddress.Endpoint.Equals(primarySiloEndPoint) ? this.MyAddress : SiloAddress.New(primarySiloEndPoint, 0);
             }
-            
+
             DirectoryPartition = grainDirectoryPartitionFactory();
             localRegistrar = new ClusterLocalRegistrar(DirectoryPartition);
             HandoffManager = new GrainDirectoryHandoffManager(this, siloStatusOracle, grainFactory, grainDirectoryPartitionFactory, loggerFactory);
@@ -129,11 +130,11 @@ namespace Orleans.Runtime.GrainDirectory
             CacheValidator = new RemoteGrainDirectory(this, Constants.DirectoryCacheValidatorType, loggerFactory);
 
             // add myself to the list of members
-            AddServer(MyAddress);
+            AddServer(MyAddress, siloDetails.Region);
 
-            Func<SiloAddress, string> siloAddressPrint = (SiloAddress addr) => 
+            Func<SiloAddress, string> siloAddressPrint = (SiloAddress addr) =>
                 String.Format("{0}/{1:X}", addr.ToLongString(), addr.GetConsistentHashCode());
-            
+
             localLookups = CounterStatistic.FindOrCreate(StatisticNames.DIRECTORY_LOOKUPS_LOCAL_ISSUED);
             localSuccesses = CounterStatistic.FindOrCreate(StatisticNames.DIRECTORY_LOOKUPS_LOCAL_SUCCESSES);
             fullLookups = CounterStatistic.FindOrCreate(StatisticNames.DIRECTORY_LOOKUPS_FULL_ISSUED);
@@ -151,9 +152,9 @@ namespace Orleans.Runtime.GrainDirectory
                     long delta1, delta2;
                     long curr1 = cacheSuccesses.GetCurrentValueAndDelta(out delta1);
                     long curr2 = cacheLookups.GetCurrentValueAndDelta(out delta2);
-                    return String.Format("{0}, Delta={1}", 
+                    return String.Format("{0}, Delta={1}",
                         (curr2 != 0 ? (float)curr1 / (float)curr2 : 0)
-                        ,(delta2 !=0 ? (float)delta1 / (float)delta2 : 0));
+                        , (delta2 != 0 ? (float)delta1 / (float)delta2 : 0));
                 });
 
             CacheValidationsSent = CounterStatistic.FindOrCreate(StatisticNames.DIRECTORY_VALIDATIONS_CACHE_SENT);
@@ -249,7 +250,7 @@ namespace Orleans.Runtime.GrainDirectory
             }
         }
 
-        protected void AddServer(SiloAddress silo)
+        protected void AddServer(SiloAddress silo, int region)
         {
             lock (this.writeLock)
             {
@@ -268,9 +269,21 @@ namespace Orleans.Runtime.GrainDirectory
                 // 'index' will get 0, as needed.
                 int index = existing.MembershipRingList.FindLastIndex(siloAddr => siloAddr.GetConsistentHashCode() < hash) + 1;
 
+                if (!existing.RegionBasedMembershipRings.TryGetValue(region, out var regionList))
+                {
+                    existing.RegionBasedMembershipRings[region] = ImmutableList<SiloAddress>.Empty;
+                    regionList = existing.RegionBasedMembershipRings[region];
+                }
+
+                int regionIndex = regionList.FindLastIndex(siloAddr => siloAddr.GetConsistentHashCode() < hash) + 1;
+                var newRegionList = regionList.Insert(regionIndex, silo);
+                var newRegionRings = new Dictionary<int, ImmutableList<SiloAddress>>(existing.RegionBasedMembershipRings);
+                newRegionRings[region] = newRegionList;
+
                 this.directoryMembership = new DirectoryMembership(
                     existing.MembershipRingList.Insert(index, silo),
-                    existing.MembershipCache.Add(silo));
+                    existing.MembershipCache.Add(silo),
+                    newRegionRings);
 
                 HandoffManager.ProcessSiloAddEvent(silo);
 
@@ -281,7 +294,7 @@ namespace Orleans.Runtime.GrainDirectory
             }
         }
 
-        protected void RemoveServer(SiloAddress silo, SiloStatus status)
+        protected void RemoveServer(SiloAddress silo, SiloStatus status, int region)
         {
             lock (this.writeLock)
             {
@@ -309,9 +322,17 @@ namespace Orleans.Runtime.GrainDirectory
                 // the call order is important
                 HandoffManager.ProcessSiloRemoveEvent(silo);
 
+                var regionRings = existing.RegionBasedMembershipRings;
+                if(regionRings.TryGetValue(region, out var regionList))
+                {
+                    regionRings = new Dictionary<int, ImmutableList<SiloAddress>>(regionRings);
+                    regionRings[region] = regionList.Remove(silo);
+                }
+
                 this.directoryMembership = new DirectoryMembership(
                     existing.MembershipRingList.Remove(silo),
-                    existing.MembershipCache.Remove(silo));
+                    existing.MembershipCache.Remove(silo),
+                    regionRings);
 
                 AdjustLocalDirectory(silo, dead: true);
                 AdjustLocalCache(silo, dead: true);
@@ -421,7 +442,7 @@ namespace Orleans.Runtime.GrainDirectory
             return result;
         }
 
-        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, string region)
+        public void SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, int region)
         {
             // This silo's status has changed
             if (!Equals(updatedSilo, MyAddress)) // Status change for some other silo
@@ -429,18 +450,18 @@ namespace Orleans.Runtime.GrainDirectory
                 if (status.IsTerminating())
                 {
                     // QueueAction up the "Remove" to run on a system turn
-                    Scheduler.QueueAction(() => RemoveServer(updatedSilo, status), CacheValidator);
+                    Scheduler.QueueAction(() => RemoveServer(updatedSilo, status, region), CacheValidator);
                 }
                 else if (status == SiloStatus.Active)      // do not do anything with SiloStatus.Starting -- wait until it actually becomes active
                 {
                     // QueueAction up the "Remove" to run on a system turn
-                    Scheduler.QueueAction(() => AddServer(updatedSilo), CacheValidator);
+                    Scheduler.QueueAction(() => AddServer(updatedSilo, region), CacheValidator);
                 }
             }
         }
 
         private bool IsValidSilo(SiloAddress silo)
-        { 
+        {
             return this.siloStatusOracle.IsFunctionalDirectory(silo);
         }
 
@@ -482,32 +503,39 @@ namespace Orleans.Runtime.GrainDirectory
             bool excludeMySelf = !Running;
 
             var existing = this.directoryMembership;
-            if (existing.MembershipRingList.Count == 0)
+
+            var membershipRingList = existing.MembershipRingList;
+            if (grainId.Region > 0)
+            {
+                existing.RegionBasedMembershipRings.TryGetValue(grainId.Region, out membershipRingList);
+            }
+
+            if (membershipRingList.Count == 0)
             {
                 // If the membership ring is empty, then we're the owner by default unless we're stopping.
                 return !Running ? null : MyAddress;
             }
 
             // need to implement a binary search, but for now simply traverse the list of silos sorted by their hashes
-            for (var index = existing.MembershipRingList.Count - 1; index >= 0; --index)
+            for (var index = membershipRingList.Count - 1; index >= 0; --index)
             {
-                var item = existing.MembershipRingList[index];
+                var item = membershipRingList[index];
                 if (IsSiloNextInTheRing(item, hash, excludeMySelf))
                 {
                     siloAddress = item;
                     break;
                 }
             }
-                
+
             if (siloAddress == null)
             {
                 // If not found in the traversal, last silo will do (we are on a ring).
                 // We checked above to make sure that the list isn't empty, so this should always be safe.
-                siloAddress = existing.MembershipRingList[existing.MembershipRingList.Count - 1];
+                siloAddress = membershipRingList[membershipRingList.Count - 1];
                 // Make sure it's not us...
                 if (siloAddress.Equals(MyAddress) && excludeMySelf)
                 {
-                    siloAddress = existing.MembershipRingList.Count > 1 ? existing.MembershipRingList[existing.MembershipRingList.Count - 2] : null;
+                    siloAddress = membershipRingList.Count > 1 ? membershipRingList[membershipRingList.Count - 2] : null;
                 }
             }
 
@@ -515,7 +543,7 @@ namespace Orleans.Runtime.GrainDirectory
             return siloAddress;
         }
 
-        public SiloAddress CheckIfShouldForward(GrainId grainId, int hopCount, string operationDescription)
+        public SiloAddress CheckIfShouldForward(bool isRegionalLocal, GrainId grainId, int hopCount, string operationDescription)
         {
             SiloAddress owner = CalculateGrainDirectoryPartition(grainId);
 
@@ -544,21 +572,21 @@ namespace Orleans.Runtime.GrainDirectory
 
         public async Task<AddressAndTag> RegisterAsync(ActivationAddress address, bool singleActivation, int hopCount)
         {
-            var counterStatistic = 
-                singleActivation 
+            var counterStatistic =
+                singleActivation
                 ? (hopCount > 0 ? this.RegistrationsSingleActRemoteReceived : this.registrationsSingleActIssued)
                 : (hopCount > 0 ? this.RegistrationsRemoteReceived : this.registrationsIssued);
 
             counterStatistic.Increment();
 
             // see if the owner is somewhere else (returns null if we are owner)
-            var forwardAddress = this.CheckIfShouldForward(address.Grain, hopCount, "RegisterAsync");
+            var forwardAddress = this.CheckIfShouldForward(address.IsRegionalLocal, address.Grain, hopCount, "RegisterAsync");
 
             // on all silos other than first, we insert a retry delay and recheck owner before forwarding
             if (hopCount > 0 && forwardAddress != null)
             {
                 await Task.Delay(RETRY_DELAY);
-                forwardAddress = this.CheckIfShouldForward(address.Grain, hopCount, "RegisterAsync");
+                forwardAddress = this.CheckIfShouldForward(address.IsRegionalLocal, address.Grain, hopCount, "RegisterAsync");
                 this.log.LogWarning($"RegisterAsync - It seems we are not the owner of activation {address}, trying to forward it to {forwardAddress} (hopCount={hopCount})");
             }
 
@@ -644,13 +672,13 @@ namespace Orleans.Runtime.GrainDirectory
                 InvalidateCacheEntry(address);
 
             // see if the owner is somewhere else (returns null if we are owner)
-            var forwardaddress = this.CheckIfShouldForward(address.Grain, hopCount, "UnregisterAsync");
+            var forwardaddress = this.CheckIfShouldForward(address.IsRegionalLocal, address.Grain, hopCount, "UnregisterAsync");
 
             // on all silos other than first, we insert a retry delay and recheck owner before forwarding
             if (hopCount > 0 && forwardaddress != null)
             {
                 await Task.Delay(RETRY_DELAY);
-                forwardaddress = this.CheckIfShouldForward(address.Grain, hopCount, "UnregisterAsync");
+                forwardaddress = this.CheckIfShouldForward(address.IsRegionalLocal, address.Grain, hopCount, "UnregisterAsync");
                 this.log.LogWarning($"UnregisterAsync - It seems we are not the owner of activation {address}, trying to forward it to {forwardaddress} (hopCount={hopCount})");
             }
 
@@ -669,13 +697,13 @@ namespace Orleans.Runtime.GrainDirectory
             }
         }
 
-        private void AddToDictionary<K,V>(ref Dictionary<K, List<V>> dictionary, K key, V value)
+        private void AddToDictionary<K, V>(ref Dictionary<K, List<V>> dictionary, K key, V value)
         {
-            if (dictionary == null) 
-               dictionary = new Dictionary<K,List<V>>();
+            if (dictionary == null)
+                dictionary = new Dictionary<K, List<V>>();
             List<V> list;
-            if (! dictionary.TryGetValue(key, out list))
-               dictionary[key] = list = new List<V>();
+            if (!dictionary.TryGetValue(key, out list))
+                dictionary[key] = list = new List<V>();
             list.Add(value);
         }
 
@@ -689,7 +717,7 @@ namespace Orleans.Runtime.GrainDirectory
             foreach (var address in addresses)
             {
                 // see if the owner is somewhere else (returns null if we are owner)
-                var forwardAddress = this.CheckIfShouldForward(address.Grain, hopCount, context);
+                var forwardAddress = this.CheckIfShouldForward(address.IsRegionalLocal, address.Grain, hopCount, context);
 
                 if (forwardAddress != null)
                 {
@@ -807,8 +835,8 @@ namespace Orleans.Runtime.GrainDirectory
         public List<ActivationAddress> GetLocalCacheData(GrainId grain)
         {
             IReadOnlyList<Tuple<SiloAddress, ActivationId>> cached;
-            return DirectoryCache.LookUp(grain, out cached) ? 
-                cached.Select(elem => ActivationAddress.GetAddress(elem.Item1, grain, elem.Item2)).Where(addr => IsValidSilo(addr.Silo)).ToList() : 
+            return DirectoryCache.LookUp(grain, out cached) ?
+                cached.Select(elem => ActivationAddress.GetAddress(elem.Item1, grain, elem.Item2)).Where(addr => IsValidSilo(addr.Silo)).ToList() :
                 null;
         }
 
@@ -817,13 +845,13 @@ namespace Orleans.Runtime.GrainDirectory
             (hopCount > 0 ? RemoteLookupsReceived : fullLookups).Increment();
 
             // see if the owner is somewhere else (returns null if we are owner)
-            var forwardAddress = this.CheckIfShouldForward(grainId, hopCount, "LookUpAsync");
+            var forwardAddress = this.CheckIfShouldForward(false, grainId, hopCount, "LookUpAsync");
 
             // on all silos other than first, we insert a retry delay and recheck owner before forwarding
             if (hopCount > 0 && forwardAddress != null)
             {
                 await Task.Delay(RETRY_DELAY);
-                forwardAddress = this.CheckIfShouldForward(grainId, hopCount, "LookUpAsync");
+                forwardAddress = this.CheckIfShouldForward(false, grainId, hopCount, "LookUpAsync");
                 this.log.LogWarning($"LookupAsync - It seems we are not the owner of grain {grainId}, trying to forward it to {forwardAddress} (hopCount={hopCount})");
             }
 
@@ -873,13 +901,13 @@ namespace Orleans.Runtime.GrainDirectory
         public async Task DeleteGrainAsync(GrainId grainId, int hopCount)
         {
             // see if the owner is somewhere else (returns null if we are owner)
-            var forwardAddress = this.CheckIfShouldForward(grainId, hopCount, "DeleteGrainAsync");
+            var forwardAddress = this.CheckIfShouldForward(false, grainId, hopCount, "DeleteGrainAsync");
 
             // on all silos other than first, we insert a retry delay and recheck owner before forwarding
             if (hopCount > 0 && forwardAddress != null)
             {
                 await Task.Delay(RETRY_DELAY);
-                forwardAddress = this.CheckIfShouldForward(grainId, hopCount, "DeleteGrainAsync");
+                forwardAddress = this.CheckIfShouldForward(false, grainId, hopCount, "DeleteGrainAsync");
                 this.log.LogWarning($"DeleteGrainAsync - It seems we are not the owner of grain {grainId}, trying to forward it to {forwardAddress} (hopCount={hopCount})");
             }
 
@@ -978,14 +1006,14 @@ namespace Orleans.Runtime.GrainDirectory
             sb.AppendFormat("      Local found: {0}", localLookupsSucceededDelta).AppendLine();
             if (localLookupsDelta > 0)
                 sb.AppendFormat("      Hit rate: {0:F1}%", (100.0 * localLookupsSucceededDelta) / localLookupsDelta).AppendLine();
-            
+
             sb.AppendFormat("      Full lookups: {0}", fullLookupsDelta).AppendLine();
             sb.AppendLine("   Since start:");
             sb.AppendFormat("      Local lookups: {0}", localLookupsCurrent).AppendLine();
             sb.AppendFormat("      Local found: {0}", localLookupsSucceededCurrent).AppendLine();
             if (localLookupsCurrent > 0)
                 sb.AppendFormat("      Hit rate: {0:F1}%", (100.0 * localLookupsSucceededCurrent) / localLookupsCurrent).AppendLine();
-            
+
             sb.AppendFormat("      Full lookups: {0}", fullLookupsCurrent).AppendLine();
             sb.Append(DirectoryCache.ToString());
 
@@ -1073,15 +1101,19 @@ namespace Orleans.Runtime.GrainDirectory
 
         private class DirectoryMembership
         {
-            public DirectoryMembership(ImmutableList<SiloAddress> membershipRingList, ImmutableHashSet<SiloAddress> membershipCache)
+            public DirectoryMembership(ImmutableList<SiloAddress> membershipRingList, ImmutableHashSet<SiloAddress> membershipCache, Dictionary<int, ImmutableList<SiloAddress>> regionBasedMembershipRings)
             {
                 this.MembershipRingList = membershipRingList;
                 this.MembershipCache = membershipCache;
+                this.RegionBasedMembershipRings = regionBasedMembershipRings;
             }
 
-            public static DirectoryMembership Default { get; } = new DirectoryMembership(ImmutableList<SiloAddress>.Empty, ImmutableHashSet<SiloAddress>.Empty);
+            public static DirectoryMembership Default { get; } = new DirectoryMembership(ImmutableList<SiloAddress>.Empty, ImmutableHashSet<SiloAddress>.Empty, new Dictionary<int, ImmutableList<SiloAddress>>());
 
             public ImmutableList<SiloAddress> MembershipRingList { get; }
+
+            public Dictionary<int, ImmutableList<SiloAddress>> RegionBasedMembershipRings { get; }
+
             public ImmutableHashSet<SiloAddress> MembershipCache { get; }
         }
     }

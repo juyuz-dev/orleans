@@ -54,6 +54,7 @@ namespace Orleans.Serialization
         {
             @this.Write(id.Type);
             @this.Write(id.Key);
+            @this.Write(id.Region);
         }
 
         /// <summary> Write a <c>GrainId</c> value to the stream. </summary>

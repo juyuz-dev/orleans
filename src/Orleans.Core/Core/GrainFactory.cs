@@ -1,8 +1,12 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using Orleans.CodeGeneration;
+using Orleans.Configuration;
+using Orleans.GrainDirectory;
 using Orleans.Runtime;
 using Orleans.Serialization;
 
@@ -32,12 +36,16 @@ namespace Orleans
 
         private readonly IRuntimeClient runtimeClient;
 
+        private readonly int region;
+
         public GrainFactory(
             IRuntimeClient runtimeClient,
-            TypeMetadataCache typeCache)
+            TypeMetadataCache typeCache,
+            IOptions<ClusterOptions> clusterOptions)
         {
             this.runtimeClient = runtimeClient;
             this.typeCache = typeCache;
+            this.region = clusterOptions.Value.Region;
         }
 
         private GrainReferenceRuntime GrainReferenceRuntime => this.grainReferenceRuntime ??= (GrainReferenceRuntime)this.runtimeClient.GrainReferenceRuntime;
@@ -246,17 +254,40 @@ namespace Orleans
 
         private GrainId GetGrainId(Type interfaceType, long grainPrimaryKey, string keyExtension, string grainClassNamePrefix)
         {
-            return LegacyGrainId.GetGrainId(GetTypeCode(interfaceType, grainClassNamePrefix), grainPrimaryKey, keyExtension);
+            int targetRegion = 0;
+            if (interfaceType.IsDefined(typeof(RegionalLocalAttribute)))
+            {
+                targetRegion = this.region;
+            }
+
+            var legacyGrainId = LegacyGrainId.GetGrainId(GetTypeCode(interfaceType, grainClassNamePrefix), grainPrimaryKey, keyExtension);
+            legacyGrainId.Region = targetRegion;
+            return legacyGrainId;
         }
 
         private GrainId GetGrainId(Type interfaceType, Guid grainPrimaryKey, string keyExtension, string grainClassNamePrefix)
         {
-            return LegacyGrainId.GetGrainId(GetTypeCode(interfaceType, grainClassNamePrefix), grainPrimaryKey, keyExtension);
+            int targetRegion = 0;
+            if (interfaceType.IsDefined(typeof(RegionalLocalAttribute)))
+            {
+                targetRegion = this.region;
+            }
+            var legacyGrainId = LegacyGrainId.GetGrainId(GetTypeCode(interfaceType, grainClassNamePrefix), grainPrimaryKey, keyExtension);
+            legacyGrainId.Region = targetRegion;
+            return legacyGrainId;
         }
 
-        private GrainId GetGrainId(Type interafaceType, string grainPrimaryKey, string grainClassNamePrefix)
+        private GrainId GetGrainId(Type interfaceType, string grainPrimaryKey, string grainClassNamePrefix)
         {
-            return LegacyGrainId.GetGrainId(GetTypeCode(interafaceType, grainClassNamePrefix), grainPrimaryKey);
+            int targetRegion = 0;
+            if (interfaceType.IsDefined(typeof(RegionalLocalAttribute)))
+            {
+                targetRegion = this.region;
+            }
+
+            var legacyGrainId = LegacyGrainId.GetGrainId(GetTypeCode(interfaceType, grainClassNamePrefix), grainPrimaryKey);
+            legacyGrainId.Region = targetRegion;
+            return legacyGrainId;
         }
 
         private long GetTypeCode(Type interfaceType, string grainClassNamePrefix = null)

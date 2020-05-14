@@ -30,7 +30,8 @@ namespace Orleans.Serialization
         {
             var type = @this.ReadIdSpan();
             var key = @this.ReadIdSpan();
-            return new GrainId(new GrainType(type), key);
+            var region = @this.ReadInt();
+            return new GrainId(new GrainType(type), key, region);
         }
 
         /// <summary> Read an <c>ActivationId</c> value from the stream. </summary>
