@@ -34,7 +34,7 @@ namespace Orleans.Runtime
 
             public NonExistentActivationException() : base("NonExistentActivationException") { }
             public NonExistentActivationException(string msg) : base(msg) { }
-            public NonExistentActivationException(string message, Exception innerException) 
+            public NonExistentActivationException(string message, Exception innerException)
                 : base(message, innerException) { }
 
             public NonExistentActivationException(string msg, ActivationAddress nonExistentActivation, bool isStatelessWorker)
@@ -162,8 +162,8 @@ namespace Orleans.Runtime
                 grainTypeManager);
             GC.GetTotalMemory(true); // need to call once w/true to ensure false returns OK value
 
-// TODO: figure out how to read config change notification from options. - jbragg
-//            config.OnConfigChange("Globals/Activation", () => scheduler.RunOrQueueAction(Start, SchedulingContext), false);
+            // TODO: figure out how to read config change notification from options. - jbragg
+            //            config.OnConfigChange("Globals/Activation", () => scheduler.RunOrQueueAction(Start, SchedulingContext), false);
             IntValueStatistic.FindOrCreate(StatisticNames.CATALOG_ACTIVATION_COUNT, () => activations.Count);
             activationsCreated = CounterStatistic.FindOrCreate(StatisticNames.CATALOG_ACTIVATION_CREATED);
             activationsDestroyed = CounterStatistic.FindOrCreate(StatisticNames.CATALOG_ACTIVATION_DESTROYED);
@@ -291,7 +291,7 @@ namespace Orleans.Runtime
 
                     // TODO: generic type expansion
                     var grainTypeName = TypeUtils.GetFullName(data.GrainInstanceType);
-                    
+
                     Dictionary<GrainId, int> grains;
                     int n;
                     if (!counts.TryGetValue(grainTypeName, out grains))
@@ -309,7 +309,7 @@ namespace Orleans.Runtime
                 .ToList();
         }
 
-        public List<DetailedGrainStatistic> GetDetailedGrainStatistics(string[] types=null)
+        public List<DetailedGrainStatistic> GetDetailedGrainStatistics(string[] types = null)
         {
             var stats = new List<DetailedGrainStatistic>();
             lock (activations)
@@ -319,7 +319,7 @@ namespace Orleans.Runtime
                     ActivationData data = activation.Value;
                     if (data == null || data.GrainInstance == null) continue;
 
-                    if (types==null || types.Contains(TypeUtils.GetFullName(data.GrainInstanceType)))
+                    if (types == null || types.Contains(TypeUtils.GetFullName(data.GrainInstanceType)))
                     {
                         stats.Add(new DetailedGrainStatistic()
                         {
@@ -363,8 +363,8 @@ namespace Orleans.Runtime
             }
 
             List<ActivationData> acts = activations.FindTargets(grain);
-            report.LocalActivations = acts != null ? 
-                acts.Select(activationData => activationData.ToDetailedString()).ToList() : 
+            report.LocalActivations = acts != null ?
+                acts.Select(activationData => activationData.ToDetailedString()).ToList() :
                 new List<string>();
             return report;
         }
@@ -413,7 +413,7 @@ namespace Orleans.Runtime
             int numActsBefore = acts.Count;
             foreach (var act in acts)
                 UnregisterMessageTarget(act);
-            
+
             return numActsBefore;
         }
 
@@ -465,7 +465,7 @@ namespace Orleans.Runtime
                 {
                     return result;
                 }
-                
+
                 int typeCode = ((LegacyGrainId)address.Grain).TypeCode;
                 string actualGrainType = null;
 
@@ -703,15 +703,15 @@ namespace Orleans.Runtime
                 data.SetupContext(grainTypeData, this.serviceProvider);
 
                 Grain grain = grainCreator.CreateGrainInstance(data);
-                
+
                 //if grain implements IStreamSubscriptionObserver, then install stream consumer extension on it
-                if(grain is IStreamSubscriptionObserver)
+                if (grain is IStreamSubscriptionObserver)
                     InstallStreamConsumerExtension(data, grain as IStreamSubscriptionObserver);
 
                 grain.Data = data;
                 data.SetGrainInstance(grain);
             }
-            
+
             activations.IncrementGrainCounter(grainClassName);
 
             if (logger.IsEnabled(LogLevel.Debug)) logger.Debug("CreateGrainInstance {0}{1}", data.Grain, data.ActivationId);
@@ -850,7 +850,7 @@ namespace Orleans.Runtime
                 tcs = new TaskCompletionSource<object>();
 
                 // Don't accept any new messages
-                activationData.PrepareForDeactivation(); 
+                activationData.PrepareForDeactivation();
                 this.activationCollector.TryCancelCollection(activationData);
 
                 // Continue deactivation when ready
@@ -1009,7 +1009,7 @@ namespace Orleans.Runtime
                 //   exception caused activation to fail, with no indication that it occured durring activation
                 //   rather than the grain call.
                 var canceledException = exc as OrleansLifecycleCanceledException;
-                if(canceledException?.InnerException != null)
+                if (canceledException?.InnerException != null)
                 {
                     ExceptionDispatchInfo.Capture(canceledException.InnerException).Throw();
                 }
@@ -1066,7 +1066,7 @@ namespace Orleans.Runtime
                     await ((ILogConsistencyProtocolParticipant)activation.GrainInstance).DeactivateProtocolParticipant();
                 }
             }
-            catch(Exception exc)
+            catch (Exception exc)
             {
                 logger.Error(ErrorCode.Catalog_FinishGrainDeactivateAndCleanupStreams_Exception, String.Format("CallGrainDeactivateAndCleanupStreams Activation = {0} failed.", activation), exc);
             }
@@ -1083,7 +1083,7 @@ namespace Orleans.Runtime
             /// </summary>
             public static readonly ActivationRegistrationResult Success = new ActivationRegistrationResult
             {
-                IsSuccess = true       
+                IsSuccess = true
             };
 
             public ActivationRegistrationResult(ActivationAddress existingActivationAddress)
@@ -1092,7 +1092,7 @@ namespace Orleans.Runtime
                 ExistingActivationAddress = existingActivationAddress;
                 IsSuccess = false;
             }
-            
+
             /// <summary>
             /// Returns true if this instance represents a successful registration, false otherwise.
             /// </summary>
@@ -1120,7 +1120,11 @@ namespace Orleans.Runtime
             {
                 var result = await scheduler.RunOrQueueTask(() => this.grainLocator.Register(address), this);
                 if (address.Equals(result)) return ActivationRegistrationResult.Success;
-               
+
+                if (activation.Grain.Region > 0)
+                {
+                    Console.WriteLine($"####RegisterActivationInGrainDirectoryAndValidate result.");
+                }
                 return new ActivationRegistrationResult(existingActivationAddress: result);
             }
             else if (activation.PlacedUsing is StatelessWorkerPlacement stPlacement)
@@ -1208,7 +1212,8 @@ namespace Orleans.Runtime
 
         public SiloStatus LocalSiloStatus
         {
-            get {
+            get
+            {
                 return SiloStatusOracle.CurrentStatus;
             }
         }
@@ -1239,7 +1244,7 @@ namespace Orleans.Runtime
 
         // TODO move this logic in the LocalGrainDirectory
         private void OnSiloStatusChange(SiloAddress updatedSilo, SiloStatus status)
-        { 
+        {
             // ignore joining events and also events on myself.
             if (updatedSilo.Equals(LocalSilo)) return;
 

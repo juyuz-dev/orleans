@@ -56,6 +56,16 @@ namespace Orleans.Runtime.Placement
             PlacementStrategy strategy, PlacementTarget target, IPlacementContext context)
         {
             var allSilos = context.GetCompatibleSilos(target);
+
+            if (target.GrainIdentity.Region > 0)
+            {
+                var targetRegionSilos = allSilos.Where(s => s.Region == target.GrainIdentity.Region).ToList();
+                if (targetRegionSilos.Any())
+                {
+                    allSilos = targetRegionSilos;
+                }
+            }
+
             return Task.FromResult(allSilos[random.Next(allSilos.Count)]);
         }
     }

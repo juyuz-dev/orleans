@@ -68,6 +68,8 @@ namespace Orleans.Runtime.MembershipService
                 foreach (var entry in currentMembership.Entries)
                 {
                     var silo = entry.Key;
+                    silo.Region = entry.Value.Region;
+
                     var status = entry.Value.Status;
                     newSiloStatusCache[silo] = status;
                     if (status == SiloStatus.Active) newSiloStatusCacheOnlyActive[silo] = status;

@@ -323,7 +323,7 @@ namespace Orleans.Runtime.GrainDirectory
                 HandoffManager.ProcessSiloRemoveEvent(silo);
 
                 var regionRings = existing.RegionBasedMembershipRings;
-                if(regionRings.TryGetValue(region, out var regionList))
+                if (regionRings.TryGetValue(region, out var regionList))
                 {
                     regionRings = new Dictionary<int, ImmutableList<SiloAddress>>(regionRings);
                     regionRings[region] = regionList.Remove(silo);
@@ -507,7 +507,10 @@ namespace Orleans.Runtime.GrainDirectory
             var membershipRingList = existing.MembershipRingList;
             if (grainId.Region > 0)
             {
-                existing.RegionBasedMembershipRings.TryGetValue(grainId.Region, out membershipRingList);
+                if (!existing.RegionBasedMembershipRings.TryGetValue(grainId.Region, out membershipRingList))
+                {
+                    membershipRingList = existing.MembershipRingList;
+                }
             }
 
             if (membershipRingList.Count == 0)
@@ -590,9 +593,24 @@ namespace Orleans.Runtime.GrainDirectory
                 this.log.LogWarning($"RegisterAsync - It seems we are not the owner of activation {address}, trying to forward it to {forwardAddress} (hopCount={hopCount})");
             }
 
+            if (address.Grain.Region >= 2)
+            {
+                Console.WriteLine($"####Register grain: {address.Grain} at {forwardAddress}");
+            }
+
             if (forwardAddress == null)
             {
                 (singleActivation ? RegistrationsSingleActLocal : RegistrationsLocal).Increment();
+
+                if (address.Grain.Region > 0)
+                {
+                    Console.WriteLine($"Received remote registration.");
+                }
+
+                if (MyAddress != address.Silo && address.Grain.Region > 0)
+                {
+                    Console.WriteLine("Rewrite address");
+                }
 
                 return localRegistrar.Register(address, singleActivation);
             }

@@ -34,6 +34,8 @@ namespace Orleans.Runtime
         public IPEndPoint Endpoint { get; private set; }
         public int Generation { get; private set; }
 
+        public int Region { get; internal set; }
+
         private const char SEPARATOR = '@';
 
         private static readonly DateTime epoch = new DateTime(2010, 1, 1, 0, 0, 0, DateTimeKind.Utc);

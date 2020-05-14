@@ -117,6 +117,7 @@ namespace Orleans.Runtime
             string name = siloDetails.Name;
             // Temporarily still require this. Hopefuly gone when 2.0 is released.
             this.siloDetails = siloDetails;
+            this.siloDetails.SiloAddress.Region = siloDetails.Region;
             this.SystemStatus = SystemStatus.Creating;
 
             var startTime = DateTime.UtcNow;

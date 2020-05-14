@@ -91,6 +91,11 @@ namespace Orleans.Runtime.Placement
                 return res;
             }
 
+            if (targetGrain.GrainIdentity.Region > 0)
+            {
+                Console.WriteLine("Inside placement");
+            }
+
             var actualStrategy = strategy ?? defaultPlacementStrategy;
             var director = ResolveSelector(actualStrategy);
             var result = await director.OnSelectActivation(strategy, targetGrain.GrainIdentity, context);

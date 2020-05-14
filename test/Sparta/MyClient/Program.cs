@@ -21,8 +21,9 @@ namespace MyClient
             {
                 using (var client = await ConnectClient())
                 {
-                    for (int i = 0; i < 1; i++)
+                    for (int i = 0; i < 100; i++)
                     {
+                        await Task.Delay(1000);
                         await DoClientWork(client);
                     }
                     Console.ReadKey();
