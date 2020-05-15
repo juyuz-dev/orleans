@@ -157,12 +157,14 @@ namespace Orleans.Runtime
         /// Parse a Uri as a Silo address, excluding the generation identifier.
         /// </summary>
         /// <param name="uri">The input Uri</param>
-        public static SiloAddress ToGatewayAddress(this Uri uri)
+        public static SiloAddress ToGatewayAddress(this (Uri,int) uri)
         {
-            switch (uri.Scheme)
+            switch (uri.Item1.Scheme)
             {
                 case "gwy.tcp":
-                    return SiloAddress.New(uri.ToIPEndPoint(), 0);
+                    var result = SiloAddress.New(uri.Item1.ToIPEndPoint(), 0);
+                    result.Region = uri.Item2;
+                    return result;
             }
 
             return null;

@@ -38,9 +38,10 @@ namespace Tester
             return Task.CompletedTask;
         }
 
-        public Task<IList<Uri>> GetGateways()
+        public Task<IList<(Uri,int)>> GetGateways()
         {
-            return Task.FromResult(Gateways);
+            IList<(Uri, int)> result = Gateways.Select(r => (r, 0)).ToList();
+            return Task.FromResult(result);
         }
     }
 
@@ -114,7 +115,7 @@ namespace Tester
 
             // Fake Gateway
             var gateways = await this.HostedCluster.Client.ServiceProvider.GetRequiredService<IGatewayListProvider>().GetGateways();
-            var port = gateways.First().Port + 2;
+            var port = gateways.First().Item1.Port + 2;
             var endpoint = new IPEndPoint(IPAddress.Loopback, port);
             var evt = new SocketAsyncEventArgs();
             var gatewayManager = this.runtimeClient.ServiceProvider.GetService<TestGatewayManager>();

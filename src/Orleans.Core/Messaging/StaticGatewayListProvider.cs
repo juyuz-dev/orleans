@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
@@ -19,7 +20,7 @@ namespace Orleans.Messaging
         public Task InitializeGatewayListProvider() => Task.CompletedTask;
         
 
-        public Task<IList<Uri>> GetGateways() => Task.FromResult<IList<Uri>>(this.options.Gateways);
+        public Task<IList<(Uri,int)>> GetGateways() => Task.FromResult<IList<(Uri,int)>>(this.options.Gateways.Select(r => (r,0)).ToList());
 
         public TimeSpan MaxStaleness
         {

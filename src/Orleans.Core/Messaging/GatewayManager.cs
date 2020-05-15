@@ -144,9 +144,15 @@ namespace Orleans.Messaging
         /// is in the same order every time.
         /// </summary>
         /// <returns></returns>
-        public SiloAddress GetLiveGateway()
+        public SiloAddress GetLiveGateway(int region)
         {
             List<SiloAddress> live = GetLiveGateways();
+
+            if (live.Any(s => s.Region == region))
+            {
+                live = live.Where(s => s.Region == region).ToList();
+            }
+
             int count = live.Count;
             if (count > 0)
             {
@@ -215,7 +221,7 @@ namespace Orleans.Messaging
         {
             try
             {
-                UpdateLiveGatewaysSnapshot(gateways.Select(gw => gw.ToGatewayAddress()), gatewayListProvider.MaxStaleness);
+                UpdateLiveGatewaysSnapshot(gateways.Select(gw => (gw, 0)).Select(gw => gw.ToGatewayAddress()), gatewayListProvider.MaxStaleness);
             }
             catch (Exception exc)
             {
@@ -262,6 +268,7 @@ namespace Orleans.Messaging
                 foreach (SiloAddress trial in knownGateways)
                 {
                     var address = trial.Generation == 0 ? trial : SiloAddress.New(trial.Endpoint, 0);
+                    address.Region = trial.Region;
 
                     // We consider a node to be dead if we recorded it is dead due to socket error
                     // and it was recorded (diedAt) not too long ago (less than maxStaleness ago).

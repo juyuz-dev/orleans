@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -32,10 +33,10 @@ namespace Orleans.AzureUtils
                 this.options);
         }
         // no caching
-        public Task<IList<Uri>> GetGateways()
+        public async Task<IList<(Uri,int)>> GetGateways()
         {
             // FindAllGatewayProxyEndpoints already returns a deep copied List<Uri>.
-            return this.siloInstanceManager.FindAllGatewayProxyEndpoints();
+            return (await this.siloInstanceManager.FindAllGatewayProxyEndpoints()).Select(r => (r, 0)).ToList();
         }
 
         public TimeSpan MaxStaleness { get; }

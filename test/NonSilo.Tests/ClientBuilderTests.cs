@@ -21,7 +21,7 @@ namespace NonSilo.Tests
 
         public bool IsUpdatable => throw new NotImplementedException();
 
-        public Task<IList<Uri>> GetGateways()
+        public Task<IList<(Uri,int)>> GetGateways()
         {
             throw new NotImplementedException();
         }

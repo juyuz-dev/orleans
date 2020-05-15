@@ -8,6 +8,7 @@ using Orleans.Runtime;
 using Orleans.Runtime.MembershipService;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 
@@ -56,7 +57,7 @@ namespace Orleans.Clustering.DynamoDB
                 });
         }
 
-        public async Task<IList<Uri>> GetGateways()
+        public async Task<IList<(Uri,int)>> GetGateways()
         {
             var expressionValues = new Dictionary<string, AttributeValue>
             {
@@ -80,7 +81,7 @@ namespace Orleans.Clustering.DynamoDB
                             int.Parse(gateway[SiloInstanceRecord.GENERATION_PROPERTY_NAME].N)).ToGatewayUri();
                 });
 
-            return records;
+            return records.Select(r => (r,0)).ToList();
         }
 
         public TimeSpan MaxStaleness { get; }

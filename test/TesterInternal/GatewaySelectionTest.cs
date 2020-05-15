@@ -43,7 +43,7 @@ namespace UnitTests.MessageCenterTests
 
         protected async Task Test_GatewaySelection(IGatewayListProvider listProvider)
         {
-            IList<Uri> gatewayUris = listProvider.GetGateways().GetResult();
+            IList<Uri> gatewayUris = listProvider.GetGateways().GetResult().Select(r => r.Item1).ToList();
             Assert.True(gatewayUris.Count > 0, $"Found some gateways. Data = {Utils.EnumerableToString(gatewayUris)}");
 
             var gatewayEndpoints = gatewayUris.Select(uri =>
@@ -58,7 +58,7 @@ namespace UnitTests.MessageCenterTests
 
             for (int i = 0; i < 2300; i++)
             {
-                var ip = gatewayManager.GetLiveGateway();
+                var ip = gatewayManager.GetLiveGateway(0);
                 var addr = ip.Endpoint.Address;
                 Assert.Equal(IPAddress.Loopback, addr);  // "Incorrect IP address returned for gateway"
                 Assert.True((0 < ip.Endpoint.Port) && (ip.Endpoint.Port < 5), "Incorrect IP port returned for gateway");
@@ -93,9 +93,10 @@ namespace UnitTests.MessageCenterTests
                 list = gatewayUris;
             }
 
-            public Task<IList<Uri>> GetGateways()
+            public Task<IList<(Uri,int)>> GetGateways()
             {
-                return Task.FromResult(list);
+                IList<(Uri, int)> result = list.Select(r => (r, 0)).ToList();
+                return Task.FromResult(result);
             }
 
             public TimeSpan MaxStaleness

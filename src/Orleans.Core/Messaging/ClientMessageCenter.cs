@@ -72,6 +72,7 @@ namespace Orleans.Messaging
         private readonly IClusterConnectionStatusListener connectionStatusListener;
         private readonly ConnectionManager connectionManager;
         private StatisticsLevel statisticsLevel;
+        private readonly int currentRegion;
 
         public ClientMessageCenter(
             IOptions<ClientMessagingOptions> clientMessagingOptions,
@@ -84,9 +85,11 @@ namespace Orleans.Messaging
             IClusterConnectionStatusListener connectionStatusListener,
             ILoggerFactory loggerFactory,
             IOptions<StatisticsOptions> statisticsOptions,
+            IOptions<ClusterOptions> clusterOptions,
             ConnectionManager connectionManager,
             GatewayManager gatewayManager)
         {
+            this.currentRegion = clusterOptions.Value.Region;
             this.connectionManager = connectionManager;
             this.SerializationManager = serializationManager;
             MyAddress = SiloAddress.New(new IPEndPoint(localAddress, 0), gen);
@@ -274,7 +277,7 @@ namespace Orleans.Messaging
                 return new ValueTask<Connection>(existingConnection);
             }
 
-            var addr = gatewayManager.GetLiveGateway();
+            var addr = gatewayManager.GetLiveGateway(this.currentRegion);
             if (addr == null)
             {
                 RejectMessage(msg, "No gateways available");
@@ -406,7 +409,7 @@ namespace Orleans.Messaging
 
         private SiloAddress GetLiveGatewaySiloAddress()
         {
-            var gateway = gatewayManager.GetLiveGateway();
+            var gateway = gatewayManager.GetLiveGateway(this.currentRegion);
 
             if (gateway == null)
             {

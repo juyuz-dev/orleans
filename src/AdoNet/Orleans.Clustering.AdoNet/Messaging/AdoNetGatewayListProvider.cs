@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Orleans.Clustering.AdoNet.Storage;
 using Orleans.Messaging;
 using Orleans.Configuration;
+using System.Linq;
 
 namespace Orleans.Runtime.Membership
 {
@@ -47,12 +48,12 @@ namespace Orleans.Runtime.Membership
             orleansQueries = await RelationalOrleansQueries.CreateInstance(options.Invariant, options.ConnectionString, this.grainReferenceConverter);
         }
 
-        public async Task<IList<Uri>> GetGateways()
+        public async Task<IList<(Uri,int)>> GetGateways()
         {
             if (logger.IsEnabled(LogLevel.Trace)) logger.Trace("AdoNetClusteringTable.GetGateways called.");
             try
             {
-                return await orleansQueries.ActiveGatewaysAsync(this.clusterId);
+                return (await orleansQueries.ActiveGatewaysAsync(this.clusterId)).Select(r => (r, 0)).ToList();
             }
             catch (Exception ex)
             {

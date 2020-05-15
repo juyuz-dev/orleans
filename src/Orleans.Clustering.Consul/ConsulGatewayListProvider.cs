@@ -55,10 +55,10 @@ namespace Orleans.Runtime.Membership
             return Task.CompletedTask;
         }
 
-        public async Task<IList<Uri>> GetGateways()
+        public async Task<IList<(Uri, int)>> GetGateways()
         {
             var membershipTableData = await ConsulBasedMembershipTable.ReadAll(this.consulClient, this.clusterId, this.kvRootFolder, this.logger, null);
-            if (membershipTableData == null) return new List<Uri>();
+            if (membershipTableData == null) return new List<(Uri,int)>();
 
             return membershipTableData.Members.Select(e => e.Item1).
                 Where(m => m.Status == SiloStatus.Active && m.ProxyPort != 0).
@@ -66,7 +66,7 @@ namespace Orleans.Runtime.Membership
                 {
                     var endpoint = new IPEndPoint(m.SiloAddress.Endpoint.Address, m.ProxyPort);
                     var gatewayAddress = SiloAddress.New(endpoint, m.SiloAddress.Generation);
-                    return gatewayAddress.ToGatewayUri();
+                    return (gatewayAddress.ToGatewayUri(),0);
                 }).ToList();
         }
     }

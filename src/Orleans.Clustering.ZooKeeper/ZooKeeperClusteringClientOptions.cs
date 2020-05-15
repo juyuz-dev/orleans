@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -49,7 +49,7 @@ namespace Orleans.Runtime.Membership
         /// Returns the list of gateways (silos) that can be used by a client to connect to Orleans cluster.
         /// The Uri is in the form of: "gwy.tcp://IP:port/Generation". See Utils.ToGatewayUri and Utils.ToSiloAddress for more details about Uri format.
         /// </summary>
-        public async Task<IList<Uri>> GetGateways()
+        public async Task<IList<(Uri,int)>> GetGateways()
         {
             var membershipTableData = await ZooKeeperBasedMembershipTable.ReadAll(this.deploymentConnectionString, this.watcher);
             return membershipTableData.Members.Select(e => e.Item1).
@@ -58,7 +58,7 @@ namespace Orleans.Runtime.Membership
                 {
                     var endpoint = new IPEndPoint(m.SiloAddress.Endpoint.Address, m.ProxyPort);
                     var gatewayAddress = SiloAddress.New(endpoint, m.SiloAddress.Generation);
-                    return gatewayAddress.ToGatewayUri();
+                    return (gatewayAddress.ToGatewayUri(), 0);
                 }).ToList();
         }
 

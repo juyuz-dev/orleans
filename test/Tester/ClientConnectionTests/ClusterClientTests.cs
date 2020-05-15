@@ -44,7 +44,7 @@ namespace Tester.ClientConnectionTests
             {
                 Assert.IsType<SiloUnavailableException>(exception);
                 exceptions.Add(exception);
-                gatewayProvider.Gateways = new List<Uri> { gwEndpoint }.AsReadOnly();
+                gatewayProvider.Gateways = new List<Uri> { gwEndpoint.Item1 }.AsReadOnly();
                 return Task.FromResult(true);
             }
 
@@ -58,7 +58,7 @@ namespace Tester.ClientConnectionTests
 
             public Task InitializeGatewayListProvider() => Task.CompletedTask;
 
-            public Task<IList<Uri>> GetGateways() => Task.FromResult<IList<Uri>>(this.Gateways);
+            public Task<IList<(Uri,int)>> GetGateways() => Task.FromResult<IList<(Uri,int)>>(this.Gateways.Select(r => (r,0)).ToList());
 
             public TimeSpan MaxStaleness => TimeSpan.FromSeconds(30);
 
