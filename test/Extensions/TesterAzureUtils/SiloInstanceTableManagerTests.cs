@@ -208,7 +208,7 @@ namespace Tester.AzureUtils
             gateways = await manager.FindAllGatewayProxyEndpoints();
             Assert.Equal(1,  gateways.Count);  // "Number of gateways after Silo.Activate"
 
-            Uri myGateway = gateways.First();
+            Uri myGateway = gateways.First().Item1;
             Assert.Equal(myEntry.Address,  myGateway.Host.ToString());  // "Gateway address"
             Assert.Equal(myEntry.ProxyPort,  myGateway.Port.ToString(CultureInfo.InvariantCulture));  // "Gateway port"
         }

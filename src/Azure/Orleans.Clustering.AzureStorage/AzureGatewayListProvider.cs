@@ -33,10 +33,10 @@ namespace Orleans.AzureUtils
                 this.options);
         }
         // no caching
-        public async Task<IList<(Uri,int)>> GetGateways()
+        public Task<IList<(Uri, int)>> GetGateways()
         {
             // FindAllGatewayProxyEndpoints already returns a deep copied List<Uri>.
-            return (await this.siloInstanceManager.FindAllGatewayProxyEndpoints()).Select(r => (r, 0)).ToList();
+            return this.siloInstanceManager.FindAllGatewayProxyEndpoints();
         }
 
         public TimeSpan MaxStaleness { get; }

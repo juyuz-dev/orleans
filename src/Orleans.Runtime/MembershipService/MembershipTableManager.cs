@@ -194,7 +194,8 @@ namespace Orleans.Runtime.MembershipService
             var entry = new MembershipEntry
             {
                 SiloAddress = myAddress,
-                IAmAliveTime = DateTime.UtcNow
+                IAmAliveTime = DateTime.UtcNow,
+                Region = this.localSiloDetails.Region
             };
 
             await this.membershipTableProvider.UpdateIAmAlive(entry);

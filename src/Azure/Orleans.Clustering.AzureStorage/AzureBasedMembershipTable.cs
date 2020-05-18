@@ -333,7 +333,8 @@ namespace Orleans.Runtime.MembershipService
                 DeploymentId = deploymentId,
                 IAmAliveTime = LogFormatter.PrintDate(memEntry.IAmAliveTime),
                 PartitionKey = deploymentId,
-                RowKey = SiloInstanceTableEntry.ConstructRowKey(memEntry.SiloAddress)
+                RowKey = SiloInstanceTableEntry.ConstructRowKey(memEntry.SiloAddress),
+                Region = memEntry.Region
             };
         }
     }

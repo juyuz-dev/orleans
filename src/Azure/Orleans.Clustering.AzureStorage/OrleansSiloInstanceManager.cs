@@ -95,7 +95,7 @@ namespace Orleans.AzureUtils
             return storage.UpsertTableEntryAsync(entry);
         }
 
-        public async Task<IList<Uri>> FindAllGatewayProxyEndpoints()
+        public async Task<IList<(Uri,int)>> FindAllGatewayProxyEndpoints()
         {
             IEnumerable<SiloInstanceTableEntry> gatewaySiloInstances = await FindAllGatewaySilos();
             return gatewaySiloInstances.Select(ConvertToGatewayUri).ToList();
@@ -106,7 +106,7 @@ namespace Orleans.AzureUtils
         /// </summary>
         /// <param name="gateway">The input silo instance</param>
         /// <returns></returns>
-        private static Uri ConvertToGatewayUri(SiloInstanceTableEntry gateway)
+        private static (Uri,int) ConvertToGatewayUri(SiloInstanceTableEntry gateway)
         {
             int proxyPort = 0;
             if (!string.IsNullOrEmpty(gateway.ProxyPort))
@@ -117,7 +117,7 @@ namespace Orleans.AzureUtils
                 int.TryParse(gateway.Generation, out gen);
 
             SiloAddress address = SiloAddress.New(new IPEndPoint(IPAddress.Parse(gateway.Address), proxyPort), gen);
-            return address.ToGatewayUri();
+            return (address.ToGatewayUri(), gateway.Region);
         }
 
         private async Task<IEnumerable<SiloInstanceTableEntry>> FindAllGatewaySilos()
