@@ -157,9 +157,9 @@ namespace Orleans.Hosting
             services.AddSingleton<ClusterHealthMonitor>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, ClusterHealthMonitor>();
             services.AddFromExisting<IHealthCheckParticipant, ClusterHealthMonitor>();
-            services.AddSingleton<MembershipAgent>();
-            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipAgent>();
-            services.AddFromExisting<IHealthCheckParticipant, MembershipAgent>();
+            services.AddSingleton<LocalClusterMembershipAgent>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, LocalClusterMembershipAgent>();
+            services.AddFromExisting<IHealthCheckParticipant, LocalClusterMembershipAgent>();
             services.AddSingleton<MembershipTableCleanupAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableCleanupAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableCleanupAgent>();
