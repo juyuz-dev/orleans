@@ -145,21 +145,38 @@ namespace Orleans.Hosting
             services.TryAddSingleton<DeploymentLoadPublisher>();
 
             services.TryAddSingleton<IAsyncTimerFactory, AsyncTimerFactory>();
+
             services.TryAddSingleton<MembershipTableManager>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableManager>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableManager>();
+
+            services.TryAddSingleton<GlobalMembershipTableManager>();
+            services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableManager>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableManager>();
+
             services.TryAddSingleton<MembershipSystemTarget>();
             services.AddFromExisting<IMembershipService, MembershipSystemTarget>();
             services.TryAddSingleton<IMembershipGossiper, MembershipGossiper>();
+            services.TryAddSingleton<GlobalMembershipGossiper>();
             services.TryAddSingleton<IRemoteSiloProber, RemoteSiloProber>();
             services.TryAddSingleton<SiloStatusOracle>();
             services.TryAddFromExisting<ISiloStatusOracle, SiloStatusOracle>();
             services.AddSingleton<ClusterHealthMonitor>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, ClusterHealthMonitor>();
             services.AddFromExisting<IHealthCheckParticipant, ClusterHealthMonitor>();
+
+            services.AddSingleton<GlobalClusterHealthMonitor>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterHealthMonitor>();
+            services.AddFromExisting<IHealthCheckParticipant, GlobalClusterHealthMonitor>();
+
             services.AddSingleton<LocalClusterMembershipAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, LocalClusterMembershipAgent>();
             services.AddFromExisting<IHealthCheckParticipant, LocalClusterMembershipAgent>();
+
+            services.AddSingleton<GlobalClusterMembershipAgent>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
+            services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+
             services.AddSingleton<MembershipTableCleanupAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableCleanupAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableCleanupAgent>();

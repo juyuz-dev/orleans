@@ -49,9 +49,15 @@ namespace MySilo
         {
             // define the cluster configuration
             var builder = new SiloHostBuilder()
+                .UseAzureStorageGlobalClustering(options =>
+                {
+                    options.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=juyuzorleanstest;AccountKey=ZPGqxB/Vzpjo0k6oJm9PhCi3jEULfn+gXQVQZtLOYRmiew667HYEv+D6/kXvfIobY+76LeEdpr0DaRq6S/N2Hg==;EndpointSuffix=core.windows.net";
+                    options.TableName = "GlobalClustering";
+                })
                 .UseAzureStorageClustering(options =>
                 {
                     options.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=juyuzorleanstest;AccountKey=ZPGqxB/Vzpjo0k6oJm9PhCi3jEULfn+gXQVQZtLOYRmiew667HYEv+D6/kXvfIobY+76LeEdpr0DaRq6S/N2Hg==;EndpointSuffix=core.windows.net";
+                    options.TableName = $"LocalClustering{region}";
                 })
                 .ConfigureEndpoints("localhost", siloPort, gatewayPort, System.Net.Sockets.AddressFamily.InterNetwork, true)
                 // .UseLocalhostClustering()
