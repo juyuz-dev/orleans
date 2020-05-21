@@ -2,9 +2,13 @@ using System;
 using System.Threading.Tasks;
 using MyTestInterfaces;
 using Orleans;
+using Orleans.GrainDirectory;
+using Orleans.Placement;
 
 namespace MyTestGrains
 {
+    [GlobalRandomPlacement]
+    [GrainDirectory(GrainDirectoryName = "TestAzureDirectory")]
     public class HelloGrain : Grain, IHello
     {
         public async Task<string> SayHello(string greeting)

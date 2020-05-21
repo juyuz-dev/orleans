@@ -59,6 +59,11 @@ namespace MySilo
                     options.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=juyuzorleanstest;AccountKey=ZPGqxB/Vzpjo0k6oJm9PhCi3jEULfn+gXQVQZtLOYRmiew667HYEv+D6/kXvfIobY+76LeEdpr0DaRq6S/N2Hg==;EndpointSuffix=core.windows.net";
                     options.TableName = $"LocalClustering{region}";
                 })
+                .AddAzureTableGrainDirectory("TestAzureDirectory", options =>
+                {
+                    options.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=juyuzorleanstest;AccountKey=ZPGqxB/Vzpjo0k6oJm9PhCi3jEULfn+gXQVQZtLOYRmiew667HYEv+D6/kXvfIobY+76LeEdpr0DaRq6S/N2Hg==;EndpointSuffix=core.windows.net";
+                    options.TableName = "GrainDirectory";
+                })
                 .ConfigureEndpoints("localhost", siloPort, gatewayPort, System.Net.Sockets.AddressFamily.InterNetwork, true)
                 // .UseLocalhostClustering()
                 .Configure<ClusterOptions>(options =>

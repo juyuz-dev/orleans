@@ -12,14 +12,15 @@ namespace MyClient
     {
         static int Main(string[] args)
         {
-            return RunMainAsync().Result;
+            int region = int.Parse(args[0]);
+            return RunMainAsync(region).Result;
         }
 
-        private static async Task<int> RunMainAsync()
+        private static async Task<int> RunMainAsync(int region)
         {
             try
             {
-                using (var client = await ConnectClient())
+                using (var client = await ConnectClient(region))
                 {
                     for (int i = 0; i < 100; i++)
                     {
@@ -41,13 +42,14 @@ namespace MyClient
             }
         }
 
-        private static async Task<IClusterClient> ConnectClient()
+        private static async Task<IClusterClient> ConnectClient(int region)
         {
             IClusterClient client;
             client = new ClientBuilder()
                 .UseAzureStorageClustering(options =>
                 {
                     options.ConnectionString = "DefaultEndpointsProtocol=https;AccountName=juyuzorleanstest;AccountKey=ZPGqxB/Vzpjo0k6oJm9PhCi3jEULfn+gXQVQZtLOYRmiew667HYEv+D6/kXvfIobY+76LeEdpr0DaRq6S/N2Hg==;EndpointSuffix=core.windows.net";
+                    options.TableName = $"LocalClustering{region}";
                 })
                 // .UseLocalhostClustering()
                 .Configure<ClusterOptions>(options =>

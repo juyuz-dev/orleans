@@ -207,6 +207,7 @@ namespace Orleans.Hosting
 
             // Placement directors
             services.AddPlacementDirector<RandomPlacement, RandomPlacementDirector>();
+            services.AddPlacementDirector<GlobalRandomPlacement, GlobalRandomPlacementDirector>();
             services.AddPlacementDirector<PreferLocalPlacement, PreferLocalPlacementDirector>();
             services.AddPlacementDirector<StatelessWorkerPlacement, StatelessWorkerDirector>();
             services.Replace(new ServiceDescriptor(typeof(StatelessWorkerPlacement), sp => new StatelessWorkerPlacement(), ServiceLifetime.Singleton));
