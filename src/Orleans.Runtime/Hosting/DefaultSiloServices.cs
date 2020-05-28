@@ -150,14 +150,29 @@ namespace Orleans.Hosting
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableManager>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableManager>();
 
-            services.TryAddSingleton<GlobalMembershipTableManager>();
-            services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableManager>();
-            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableManager>();
+            bool useGlobalClustering = services.Any(s => s.ServiceType == typeof(IGlobalMembershipTable));
+
+            if (useGlobalClustering)
+            {
+                services.AddPlacementDirector<GlobalRandomPlacement, GlobalRandomPlacementDirector>();
+                services.TryAddSingleton<GlobalMembershipGossiper>();
+
+                services.TryAddSingleton<GlobalMembershipTableManager>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableManager>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableManager>();
+
+                services.AddSingleton<GlobalClusterHealthMonitor>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterHealthMonitor>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterHealthMonitor>();
+
+                services.AddSingleton<GlobalClusterMembershipAgent>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+            }
 
             services.TryAddSingleton<MembershipSystemTarget>();
             services.AddFromExisting<IMembershipService, MembershipSystemTarget>();
             services.TryAddSingleton<IMembershipGossiper, MembershipGossiper>();
-            services.TryAddSingleton<GlobalMembershipGossiper>();
             services.TryAddSingleton<IRemoteSiloProber, RemoteSiloProber>();
             services.TryAddSingleton<SiloStatusOracle>();
             services.TryAddFromExisting<ISiloStatusOracle, SiloStatusOracle>();
@@ -165,17 +180,9 @@ namespace Orleans.Hosting
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, ClusterHealthMonitor>();
             services.AddFromExisting<IHealthCheckParticipant, ClusterHealthMonitor>();
 
-            services.AddSingleton<GlobalClusterHealthMonitor>();
-            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterHealthMonitor>();
-            services.AddFromExisting<IHealthCheckParticipant, GlobalClusterHealthMonitor>();
-
-            services.AddSingleton<LocalClusterMembershipAgent>();
-            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, LocalClusterMembershipAgent>();
-            services.AddFromExisting<IHealthCheckParticipant, LocalClusterMembershipAgent>();
-
-            services.AddSingleton<GlobalClusterMembershipAgent>();
-            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
-            services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+            services.AddSingleton<MembershipAgent>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipAgent>();
+            services.AddFromExisting<IHealthCheckParticipant, MembershipAgent>();
 
             services.AddSingleton<MembershipTableCleanupAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableCleanupAgent>();
@@ -207,7 +214,6 @@ namespace Orleans.Hosting
 
             // Placement directors
             services.AddPlacementDirector<RandomPlacement, RandomPlacementDirector>();
-            services.AddPlacementDirector<GlobalRandomPlacement, GlobalRandomPlacementDirector>();
             services.AddPlacementDirector<PreferLocalPlacement, PreferLocalPlacementDirector>();
             services.AddPlacementDirector<StatelessWorkerPlacement, StatelessWorkerDirector>();
             services.Replace(new ServiceDescriptor(typeof(StatelessWorkerPlacement), sp => new StatelessWorkerPlacement(), ServiceLifetime.Singleton));

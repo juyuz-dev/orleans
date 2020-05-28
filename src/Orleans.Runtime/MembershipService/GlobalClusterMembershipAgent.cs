@@ -18,7 +18,6 @@ namespace Orleans.Runtime.MembershipService
             ILogger<MembershipAgent> log,
             IAsyncTimerFactory timerFactory) : base(tableManager, clusterHealthMonitor, localSilo, fatalErrorHandler, options, log, timerFactory)
         {
-            Console.WriteLine("####Inside Global cluster membership agent.");
         }
     }
 }
