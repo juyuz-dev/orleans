@@ -5,6 +5,7 @@ using Orleans.AzureUtils;
 using Orleans.Clustering.AzureStorage;
 using Orleans.Configuration;
 using Orleans.Messaging;
+using Orleans.Runtime;
 using Orleans.Runtime.MembershipService;
 
 namespace Orleans.Hosting
@@ -37,6 +38,23 @@ namespace Orleans.Hosting
 
                     services.AddSingleton<IMembershipTable, AzureBasedMembershipTable>()
                     .ConfigureFormatter<AzureStorageClusteringOptions>();
+                });
+        }
+
+        public static ISiloHostBuilder UseAzureStorageGlobalClustering(
+            this ISiloHostBuilder builder,
+            Action<AzureStorageClusteringGlobalOptions> configureOptions)
+        {
+            return builder.ConfigureServices(
+                services =>
+                {
+                    if (configureOptions != null)
+                    {
+                        services.Configure(configureOptions);
+                    }
+
+                    services.AddSingleton<IGlobalMembershipTable, GlobalAzureBasedMembershipTable>()
+                    .ConfigureFormatter<AzureStorageClusteringGlobalOptions>();
                 });
         }
 

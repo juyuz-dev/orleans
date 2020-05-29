@@ -145,9 +145,35 @@ namespace Orleans.Hosting
             services.TryAddSingleton<DeploymentLoadPublisher>();
 
             services.TryAddSingleton<IAsyncTimerFactory, AsyncTimerFactory>();
+
             services.TryAddSingleton<MembershipTableManager>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableManager>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableManager>();
+
+            bool useGlobalClustering = services.Any(s => s.ServiceType == typeof(IGlobalMembershipTable));
+
+            if (useGlobalClustering)
+            {
+                services.AddPlacementDirector<GlobalRandomPlacement, GlobalRandomPlacementDirector>();
+                services.TryAddSingleton<GlobalMembershipGossiper>();
+
+                services.TryAddSingleton<GlobalMembershipTableManager>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableManager>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableManager>();
+
+                services.AddSingleton<GlobalClusterHealthMonitor>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterHealthMonitor>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterHealthMonitor>();
+
+                services.AddSingleton<GlobalClusterMembershipAgent>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+
+                services.AddSingleton<GlobalClusterMembershipService>();
+                services.TryAddFromExisting<IGlobalClusterMembershipService, GlobalClusterMembershipService>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipService>();
+            }
+
             services.TryAddSingleton<MembershipSystemTarget>();
             services.AddFromExisting<IMembershipService, MembershipSystemTarget>();
             services.TryAddSingleton<IMembershipGossiper, MembershipGossiper>();
@@ -157,9 +183,11 @@ namespace Orleans.Hosting
             services.AddSingleton<ClusterHealthMonitor>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, ClusterHealthMonitor>();
             services.AddFromExisting<IHealthCheckParticipant, ClusterHealthMonitor>();
+
             services.AddSingleton<MembershipAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipAgent>();
+
             services.AddSingleton<MembershipTableCleanupAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableCleanupAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableCleanupAgent>();

@@ -43,11 +43,12 @@ namespace UnitTests.Directory
             this.grainDirectoryResolver.Directories.Returns(new[] { this.grainDirectory });
             this.localGrainDirectory = Substitute.For<ILocalGrainDirectory>();
             this.mockMembershipService = new MockClusterMembershipService();
-
+            
             this.grainLocator = new CachedGrainLocator(
                 this.grainDirectoryResolver, 
                 new DhtGrainLocator(this.localGrainDirectory),
-                this.mockMembershipService.Target);
+                this.mockMembershipService.Target,
+                Substitute.For<IServiceProvider>());
 
             this.grainLocator.Participate(this.lifecycle);
         }

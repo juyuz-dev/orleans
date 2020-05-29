@@ -246,6 +246,20 @@ namespace Orleans
         }
     }
 
+    public class SiloGrainInterfaceData
+    {
+        public int InterfaceId { get; set; }
+
+        public ushort InterfaceVersion { get; set; }
+    }
+
+    public class SiloGrainTypeMap
+    {
+        public List<SiloGrainInterfaceData> SupportedGrainInterfaces { get; set; }
+
+        public List<int> SupportedGrainClasses { get; set; }
+    }
+
     [Serializable]
     public class MembershipEntry
     {
@@ -279,6 +293,10 @@ namespace Orleans
         /// If running in Azure - the name of this role instance. Set on silo startup.
         /// </summary>
         public string SiloName { get; set; }
+
+        public string Region { get; set; }
+
+        public string GrainTypeMap { get; set; }
 
         public string RoleName { get; set; } // Optional - only for Azure role  
         public int UpdateZone { get; set; }  // Optional - only for Azure role
@@ -314,6 +332,8 @@ namespace Orleans
 
                 RoleName = this.RoleName,
                 SiloName = this.SiloName,
+                Region = this.Region,
+                GrainTypeMap = this.GrainTypeMap,
                 UpdateZone = this.UpdateZone,
                 FaultZone = this.FaultZone,
 
@@ -366,7 +386,7 @@ namespace Orleans
             List<DateTime> timestamps = SuspectTimes == null
                 ? null
                 : SuspectTimes.Select(tuple => tuple.Item2).ToList();
-            return string.Format("[SiloAddress={0} SiloName={1} Status={2} HostName={3} ProxyPort={4} " +
+            return string.Format("[SiloAddress={0} SiloName={1} Status={2} HostName={3} Region={12} ProxyPort={4} " +
                                  "RoleName={5} UpdateZone={6} FaultZone={7} StartTime = {8} IAmAliveTime = {9} {10} {11}]",
                 SiloAddress.ToLongString(),
                 SiloName,
@@ -383,7 +403,8 @@ namespace Orleans
                     : "Suspecters = " + Utils.EnumerableToString(suspecters, sa => sa.ToLongString()),
                 timestamps == null
                     ? ""
-                    : "SuspectTimes = " + Utils.EnumerableToString(timestamps, LogFormatter.PrintDate)
+                    : "SuspectTimes = " + Utils.EnumerableToString(timestamps, LogFormatter.PrintDate),
+                Region
                 );
         }
     }
