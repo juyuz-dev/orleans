@@ -32,7 +32,7 @@ namespace Orleans.Runtime.MembershipService
                 gossipPartners.Count);
 
             var systemTarget = this.serviceProvider.GetRequiredService<MembershipSystemTarget>();
-            return systemTarget.GossipToRemoteSilos(gossipPartners, snapshot, updatedSilo, updatedStatus);
+            return systemTarget.GossipToRemoteSilos(gossipPartners, snapshot, updatedSilo, updatedStatus, false);
         }
     }
 }

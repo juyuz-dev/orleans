@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Orleans.Runtime.MembershipService
@@ -8,6 +9,7 @@ namespace Orleans.Runtime.MembershipService
     internal class MembershipSystemTarget : SystemTarget, IMembershipService
     {
         private readonly MembershipTableManager membershipTableManager;
+        private readonly GlobalMembershipTableManager globalMembershipTableManager;
         private readonly ILogger<MembershipSystemTarget> log;
         private readonly IInternalGrainFactory grainFactory;
 
@@ -16,38 +18,47 @@ namespace Orleans.Runtime.MembershipService
             ILocalSiloDetails localSiloDetails,
             ILoggerFactory loggerFactory,
             ILogger<MembershipSystemTarget> log,
-            IInternalGrainFactory grainFactory)
+            IInternalGrainFactory grainFactory,
+            IServiceProvider serviceProvider)
             : base(Constants.MembershipOracleId, localSiloDetails.SiloAddress, loggerFactory)
         {
             this.membershipTableManager = membershipTableManager;
             this.log = log;
             this.grainFactory = grainFactory;
+            this.globalMembershipTableManager = serviceProvider.GetService<GlobalMembershipTableManager>();
         }
 
         public Task Ping(int pingNumber) => Task.CompletedTask;
 
-        public async Task SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status)
+        public async Task SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, bool isGlobal)
         {
             if (this.log.IsEnabled(LogLevel.Trace))
             {
                 this.log.LogTrace("-Received GOSSIP SiloStatusChangeNotification about {Silo} status {Status}. Going to read the table.", updatedSilo, status);
             }
 
-            await ReadTable();
+            await ReadTable(isGlobal);
         }
 
-        public async Task MembershipChangeNotification(MembershipTableSnapshot snapshot)
+        public async Task MembershipChangeNotification(MembershipTableSnapshot snapshot, bool isGlobal)
         {
             if (snapshot.Version != MembershipVersion.MinValue)
             {
-                await this.membershipTableManager.RefreshFromSnapshot(snapshot);
+                if (isGlobal)
+                {
+                    await this.globalMembershipTableManager.RefreshFromSnapshot(snapshot);
+                }
+                else
+                {
+                    await this.membershipTableManager.RefreshFromSnapshot(snapshot);
+                }
             }
             else
             {
                 if (this.log.IsEnabled(LogLevel.Trace))
                     this.log.LogTrace("-Received GOSSIP MembershipChangeNotification with MembershipVersion.MinValue. Going to read the table");
 
-                await ReadTable();
+                await ReadTable(isGlobal);
             }
         }
 
@@ -87,14 +98,15 @@ namespace Orleans.Runtime.MembershipService
             List<SiloAddress> gossipPartners,
             MembershipTableSnapshot snapshot,
             SiloAddress updatedSilo,
-            SiloStatus updatedStatus)
+            SiloStatus updatedStatus,
+            bool isGlobal)
         {
             async Task Gossip()
             {
                 var tasks = new List<Task>(gossipPartners.Count);
                 foreach (var silo in gossipPartners)
                 {
-                    tasks.Add(this.GossipToRemoteSilo(silo, snapshot, updatedSilo, updatedStatus));
+                    tasks.Add(this.GossipToRemoteSilo(silo, snapshot, updatedSilo, updatedStatus, isGlobal));
                 }
 
                 await Task.WhenAll(tasks);
@@ -107,7 +119,8 @@ namespace Orleans.Runtime.MembershipService
             SiloAddress silo,
             MembershipTableSnapshot snapshot,
             SiloAddress updatedSilo,
-            SiloStatus updatedStatus)
+            SiloStatus updatedStatus,
+            bool isGlobal)
         {
             if (this.log.IsEnabled(LogLevel.Trace))
             {
@@ -123,12 +136,12 @@ namespace Orleans.Runtime.MembershipService
                 var remoteOracle = this.grainFactory.GetSystemTarget<IMembershipService>(Constants.MembershipOracleId, silo);
                 try
                 {
-                    await remoteOracle.MembershipChangeNotification(snapshot);
+                    await remoteOracle.MembershipChangeNotification(snapshot, isGlobal);
                 }
                 catch (NotImplementedException)
                 {
                     // Fallback to "old" gossip
-                    await remoteOracle.SiloStatusChangeNotification(updatedSilo, updatedStatus);
+                    await remoteOracle.SiloStatusChangeNotification(updatedSilo, updatedStatus, isGlobal);
                 }
             }
             catch (Exception exception)
@@ -139,11 +152,18 @@ namespace Orleans.Runtime.MembershipService
             }
         }
 
-        private async Task ReadTable()
+        private async Task ReadTable(bool isGlobal)
         {
             try
             {
-                await this.membershipTableManager.Refresh();
+                if (isGlobal)
+                {
+                    await this.globalMembershipTableManager.Refresh();
+                }
+                else
+                {
+                    await this.membershipTableManager.Refresh();
+                }
             }
             catch (Exception exception)
             {

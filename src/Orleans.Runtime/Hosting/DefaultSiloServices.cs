@@ -168,6 +168,10 @@ namespace Orleans.Hosting
                 services.AddSingleton<GlobalClusterMembershipAgent>();
                 services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
                 services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+
+                services.AddSingleton<GlobalClusterMembershipService>();
+                services.TryAddFromExisting<IGlobalClusterMembershipService, GlobalClusterMembershipService>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipService>();
             }
 
             services.TryAddSingleton<MembershipSystemTarget>();

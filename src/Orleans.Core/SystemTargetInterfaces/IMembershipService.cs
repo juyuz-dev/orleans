@@ -10,16 +10,18 @@ namespace Orleans.Runtime
         /// </summary>
         /// <param name="updatedSilo">Silo to update about</param>
         /// <param name="status">Status of the silo</param>
+        /// <param name="isGlobal">true if it's updates for global clustering</param>
         /// <returns></returns>
         /// TODO REMOVE in a next version
-        Task SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status);
+        Task SiloStatusChangeNotification(SiloAddress updatedSilo, SiloStatus status, bool isGlobal);
 
         /// <summary>
         /// Receive notifications about a change in the membership table
         /// </summary>
         /// <param name="snapshot">Snapshot of the membership table</param>
+        /// <param name="isGlobal">true if it's updates for global clustering</param>
         /// <returns></returns>
-        Task MembershipChangeNotification(MembershipTableSnapshot snapshot);
+        Task MembershipChangeNotification(MembershipTableSnapshot snapshot, bool isGlobal);
 
         /// <summary>
         /// Ping request from another silo that probes the liveness of the recipient silo.
