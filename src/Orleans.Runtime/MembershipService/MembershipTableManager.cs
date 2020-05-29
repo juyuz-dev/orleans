@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -35,6 +36,7 @@ namespace Orleans.Runtime.MembershipService
         private readonly SiloAddress myAddress;
         private readonly AsyncEnumerable<MembershipTableSnapshot> updates;
         private readonly IAsyncTimer membershipUpdateTimer;
+        private readonly string grainTypeMap;
 
         private MembershipTableSnapshot snapshot;
 
@@ -46,8 +48,10 @@ namespace Orleans.Runtime.MembershipService
             IMembershipGossiper gossiper,
             ILogger<MembershipTableManager> log,
             IAsyncTimerFactory timerFactory,
-            ISiloLifecycle siloLifecycle)
+            ISiloLifecycle siloLifecycle,
+            GrainTypeManager grainTypeManager)
         {
+            this.grainTypeMap = this.GetTypeMap(grainTypeManager);
             this.localSiloDetails = localSiloDetails;
             this.membershipTableProvider = membershipTable;
             this.fatalErrorHandler = fatalErrorHandler;
@@ -239,7 +243,7 @@ namespace Orleans.Runtime.MembershipService
             {
                 var targetMilliseconds = (int)this.clusterMembershipOptions.TableRefreshTimeout.TotalMilliseconds;
                 var random = new SafeRandom();
-                
+
                 TimeSpan? onceOffDelay = random.NextTimeSpan(this.clusterMembershipOptions.TableRefreshTimeout);
                 while (await this.membershipUpdateTimer.NextTick(onceOffDelay))
                 {
@@ -302,7 +306,7 @@ namespace Orleans.Runtime.MembershipService
         {
             string errorString = null;
             int numCalls = 0;
-            
+
             try
             {
                 Func<int, Task<bool>> updateMyStatusTask = async counter =>
@@ -311,7 +315,7 @@ namespace Orleans.Runtime.MembershipService
                     if (log.IsEnabled(LogLevel.Debug)) log.Debug("-Going to try to TryUpdateMyStatusGlobalOnce #{0}", counter);
                     return await TryUpdateMyStatusGlobalOnce(status);  // function to retry
                 };
-                
+
                 if (status == SiloStatus.Dead && this.membershipTableProvider is SystemTargetBasedMembershipTable)
                 {
                     // SystemTarget-based membership may not be accessible at this stage, so allow for one quick attempt to update
@@ -356,7 +360,7 @@ namespace Orleans.Runtime.MembershipService
                     throw new OrleansException(errorString);
                 }
             }
-            catch (Exception exc) 
+            catch (Exception exc)
             {
                 if (errorString == null)
                 {
@@ -442,6 +446,7 @@ namespace Orleans.Runtime.MembershipService
                 HostName = this.localSiloDetails.DnsHostName,
                 SiloName = this.localSiloDetails.Name,
                 Region = this.localSiloDetails.Region,
+                GrainTypeMap = this.grainTypeMap,
 
                 Status = currentStatus,
                 ProxyPort = this.localSiloDetails.GatewayAddress?.Endpoint?.Port ?? 0,
@@ -452,6 +457,22 @@ namespace Orleans.Runtime.MembershipService
                 StartTime = this.siloStartTime,
                 IAmAliveTime = DateTime.UtcNow
             };
+        }
+
+        private string GetTypeMap(GrainTypeManager grainTypeManager)
+        {
+            if(grainTypeManager ==null)
+            {
+                return string.Empty;
+            }
+
+            var typeMap = grainTypeManager.GetTypeCodeMap();
+
+            SiloGrainTypeMap siloGrainTypeMap = new SiloGrainTypeMap();
+            siloGrainTypeMap.SupportedGrainInterfaces = typeMap.SupportedInterfaces.Select(r => new SiloGrainInterfaceData { InterfaceId = r.InterfaceId, InterfaceVersion = r.InterfaceVersion }).ToList();
+            siloGrainTypeMap.SupportedGrainClasses = typeMap.SupportedGrainClassData.Select(r => r.GrainTypeCode).ToList();
+
+            return JsonSerializer.Serialize(siloGrainTypeMap);
         }
 
         private void ProcessTableUpdate(MembershipTableData table, string caller)
@@ -505,7 +526,7 @@ namespace Orleans.Runtime.MembershipService
             {
                 var entry = tuple.Item1;
                 var siloAddress = entry.SiloAddress;
-                
+
                 if (siloAddress.Generation.Equals(myAddress.Generation))
                 {
                     if (entry.Status == SiloStatus.Dead)
@@ -516,7 +537,7 @@ namespace Orleans.Runtime.MembershipService
                     }
                     continue;
                 }
-                
+
                 if (entry.Status == SiloStatus.Dead)
                 {
                     if (log.IsEnabled(LogLevel.Trace)) log.Trace("Skipping my previous old Dead entry in membership table: {0}", entry.ToFullString(full: true));
@@ -643,7 +664,7 @@ namespace Orleans.Runtime.MembershipService
             if (log.IsEnabled(LogLevel.Debug)) log.Debug("-TryToSuspectOrKill {siloAddress}: The current status of {siloAddress} in the table is {status}, its entry is {entry}",
                 entry.SiloAddress, // First
                 entry.SiloAddress, // Second
-                entry.Status, 
+                entry.Status,
                 entry.ToFullString());
             // check if the table already knows that this silo is dead
             if (entry.Status == SiloStatus.Dead)
@@ -682,20 +703,20 @@ namespace Orleans.Runtime.MembershipService
 
             if (freshVotes.Count + myAdditionalVote >= this.clusterMembershipOptions.NumVotesForDeathDeclaration)
                 declareDead = true;
-            
+
             if (freshVotes.Count + myAdditionalVote >= (activeSilos + 1) / 2)
                 declareDead = true;
-            
+
             if (declareDead)
             {
                 // kick this silo off
-                log.Info(ErrorCode.MembershipMarkingAsDead, 
+                log.Info(ErrorCode.MembershipMarkingAsDead,
                     "-Going to mark silo {0} as DEAD in the table #1. I am the last voter: #freshVotes={1}, myVoteIndex = {2}, NumVotesForDeathDeclaration={3} , #activeSilos={4}, suspect list={5}",
-                            entry.SiloAddress, 
-                            freshVotes.Count, 
+                            entry.SiloAddress,
+                            freshVotes.Count,
                             myVoteIndex,
-                            this.clusterMembershipOptions.NumVotesForDeathDeclaration, 
-                            activeSilos, 
+                            this.clusterMembershipOptions.NumVotesForDeathDeclaration,
+                            activeSilos,
                             PrintSuspectList(allVotes));
                 return await DeclareDead(entry, eTag, table.Version);
             }
@@ -731,8 +752,8 @@ namespace Orleans.Runtime.MembershipService
             }
             log.Info(ErrorCode.MembershipVotingForKill,
                 "-Putting my vote to mark silo {0} as DEAD #2. Previous suspect list is {1}, trying to update to {2}, eTag={3}, freshVotes is {4}",
-                entry.SiloAddress, 
-                PrintSuspectList(prevList), 
+                entry.SiloAddress,
+                PrintSuspectList(prevList),
                 PrintSuspectList(entry.SuspectTimes),
                 eTag,
                 PrintSuspectList(freshVotes));
@@ -768,11 +789,11 @@ namespace Orleans.Runtime.MembershipService
                     GossipToOthers(entry.SiloAddress, entry.Status).Ignore();
                     return true;
                 }
-                
+
                 log.Info(ErrorCode.MembershipMarkDeadWriteFailed, "-Failed to update {0} status to Dead in the Membership table, due to write conflicts. Will retry.", entry.SiloAddress);
                 return false;
             }
-            
+
             log.Info(ErrorCode.MembershipCantWriteLivenessDisabled, "-Want to mark silo {0} as DEAD, but will ignore because Liveness is Disabled.", entry.SiloAddress);
             return true;
         }

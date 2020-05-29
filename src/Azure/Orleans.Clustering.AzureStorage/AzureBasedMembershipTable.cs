@@ -222,6 +222,7 @@ namespace Orleans.Runtime.MembershipService
             parse.SiloAddress = SiloAddress.New(new IPEndPoint(IPAddress.Parse(tableEntry.Address), port), gen);
 
             parse.Region = tableEntry.Region;
+            parse.GrainTypeMap = tableEntry.GrainTypeMap;
             parse.RoleName = tableEntry.RoleName;
             if (!string.IsNullOrEmpty(tableEntry.SiloName))
             {
@@ -286,6 +287,7 @@ namespace Orleans.Runtime.MembershipService
                 RoleName = memEntry.RoleName,
                 SiloName = memEntry.SiloName,
                 Region = memEntry.Region,
+                GrainTypeMap = memEntry.GrainTypeMap,
                 // this is for backward compatability: in a mixed cluster of old and new version,
                 // we need to populate both columns.
                 InstanceName = memEntry.SiloName,

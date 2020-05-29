@@ -246,6 +246,20 @@ namespace Orleans
         }
     }
 
+    public class SiloGrainInterfaceData
+    {
+        public int InterfaceId { get; set; }
+
+        public ushort InterfaceVersion { get; set; }
+    }
+
+    public class SiloGrainTypeMap
+    {
+        public List<SiloGrainInterfaceData> SupportedGrainInterfaces { get; set; }
+
+        public List<int> SupportedGrainClasses { get; set; }
+    }
+
     [Serializable]
     public class MembershipEntry
     {
@@ -282,6 +296,8 @@ namespace Orleans
 
         public string Region { get; set; }
 
+        public string GrainTypeMap { get; set; }
+
         public string RoleName { get; set; } // Optional - only for Azure role  
         public int UpdateZone { get; set; }  // Optional - only for Azure role
         public int FaultZone { get; set; }   // Optional - only for Azure role
@@ -317,6 +333,7 @@ namespace Orleans
                 RoleName = this.RoleName,
                 SiloName = this.SiloName,
                 Region = this.Region,
+                GrainTypeMap = this.GrainTypeMap,
                 UpdateZone = this.UpdateZone,
                 FaultZone = this.FaultZone,
 

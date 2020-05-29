@@ -104,7 +104,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: timerFactory,
-                this.lifecycle);
+                this.lifecycle,
+                null);
 
             // Validate that the initial snapshot is valid and contains the local silo.
             var initialSnapshot = manager.MembershipTableSnapshot;
@@ -220,7 +221,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                this.lifecycle);
+                this.lifecycle,
+                null);
 
             // Validate that the initial snapshot is valid and contains the local silo.
             var snapshot = manager.MembershipTableSnapshot;
@@ -314,7 +316,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                this.lifecycle);
+                this.lifecycle,
+                null);
 
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
 
@@ -355,7 +358,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                this.lifecycle);
+                this.lifecycle,
+                null);
 
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
 
@@ -392,7 +396,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
 
@@ -437,7 +442,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
             await manager.UpdateStatus(SiloStatus.Active);
@@ -477,7 +483,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
             await manager.UpdateStatus(SiloStatus.Active);
@@ -508,7 +515,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
             await manager.UpdateStatus(SiloStatus.Active);
@@ -545,7 +553,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
             await manager.UpdateStatus(SiloStatus.Active);
@@ -633,7 +642,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: timerFactory,
-                siloLifecycle: this.lifecycle);
+                siloLifecycle: this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)manager).Participate(this.lifecycle);
             await this.lifecycle.OnStart();
             

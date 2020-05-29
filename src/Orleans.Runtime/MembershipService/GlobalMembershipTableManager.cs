@@ -14,8 +14,9 @@ namespace Orleans.Runtime.MembershipService
             GlobalMembershipGossiper gossiper,
             ILogger<MembershipTableManager> log,
             IAsyncTimerFactory timerFactory,
-            ISiloLifecycle siloLifecycle)
-            : base(localSiloDetails, clusterMembershipOptions, membershipTable, fatalErrorHandler, gossiper, log, timerFactory, siloLifecycle)
+            ISiloLifecycle siloLifecycle,
+            GrainTypeManager grainTypeManager)
+            : base(localSiloDetails, clusterMembershipOptions, membershipTable, fatalErrorHandler, gossiper, log, timerFactory, siloLifecycle, grainTypeManager)
         {
         }
     }
