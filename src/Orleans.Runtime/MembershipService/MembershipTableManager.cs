@@ -194,7 +194,8 @@ namespace Orleans.Runtime.MembershipService
             var entry = new MembershipEntry
             {
                 SiloAddress = myAddress,
-                IAmAliveTime = DateTime.UtcNow
+                IAmAliveTime = DateTime.UtcNow,
+                Region = this.localSiloDetails.Region
             };
 
             await this.membershipTableProvider.UpdateIAmAlive(entry);
@@ -440,6 +441,7 @@ namespace Orleans.Runtime.MembershipService
 
                 HostName = this.localSiloDetails.DnsHostName,
                 SiloName = this.localSiloDetails.Name,
+                Region = this.localSiloDetails.Region,
 
                 Status = currentStatus,
                 ProxyPort = this.localSiloDetails.GatewayAddress?.Endpoint?.Port ?? 0,

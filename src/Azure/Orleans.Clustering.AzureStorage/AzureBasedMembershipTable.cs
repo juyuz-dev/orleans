@@ -221,6 +221,7 @@ namespace Orleans.Runtime.MembershipService
 
             parse.SiloAddress = SiloAddress.New(new IPEndPoint(IPAddress.Parse(tableEntry.Address), port), gen);
 
+            parse.Region = tableEntry.Region;
             parse.RoleName = tableEntry.RoleName;
             if (!string.IsNullOrEmpty(tableEntry.SiloName))
             {
@@ -284,6 +285,7 @@ namespace Orleans.Runtime.MembershipService
                 ProxyPort = memEntry.ProxyPort.ToString(CultureInfo.InvariantCulture),
                 RoleName = memEntry.RoleName,
                 SiloName = memEntry.SiloName,
+                Region = memEntry.Region,
                 // this is for backward compatability: in a mixed cluster of old and new version,
                 // we need to populate both columns.
                 InstanceName = memEntry.SiloName,
@@ -331,7 +333,8 @@ namespace Orleans.Runtime.MembershipService
                 DeploymentId = deploymentId,
                 IAmAliveTime = LogFormatter.PrintDate(memEntry.IAmAliveTime),
                 PartitionKey = deploymentId,
-                RowKey = SiloInstanceTableEntry.ConstructRowKey(memEntry.SiloAddress)
+                RowKey = SiloInstanceTableEntry.ConstructRowKey(memEntry.SiloAddress),
+                Region = memEntry.Region
             };
         }
     }

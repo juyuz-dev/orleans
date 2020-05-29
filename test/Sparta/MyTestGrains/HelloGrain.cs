@@ -15,8 +15,9 @@ namespace MyTestGrains
         {
             Console.WriteLine($"####Hello from: {greeting}");
 
-            var a = this.GrainFactory.GetGrain<IHello>(Guid.NewGuid());
-            await a.Test();
+            //var a = this.GrainFactory.GetGrain<IHello>(Guid.NewGuid());
+            //await a.Test();
+            await Task.Delay(10);
 
             return "anything";
         }

@@ -70,7 +70,7 @@ namespace MySilo
                 {
                     options.ClusterId = "dev";
                     options.ServiceId = "OrleansBasics";
-                    // options.Region = region;
+                    options.Region = "West US2";
                 })
 
                 .ConfigureApplicationParts(parts => parts.AddApplicationPart(typeof(HelloGrain).Assembly).WithReferences())

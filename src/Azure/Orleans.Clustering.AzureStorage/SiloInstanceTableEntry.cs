@@ -20,6 +20,9 @@ namespace Orleans.AzureUtils
 
         public string RoleName { get; set; }        // Optional - only for Azure role
         public string SiloName { get; set; }
+
+        public string Region { get; set; }
+
         public string InstanceName { get; set; }    // For backward compatability we leave the old column, untill all clients update the code to new version.
         public string UpdateZone { get; set; }         // Optional - only for Azure role
         public string FaultZone { get; set; }          // Optional - only for Azure role
@@ -93,6 +96,7 @@ namespace Orleans.AzureUtils
                 sb.Append(" ProxyPort=").Append(ProxyPort);
 
                 if (!string.IsNullOrEmpty(RoleName)) sb.Append(" RoleName=").Append(RoleName);
+                sb.Append(" Region=").Append(Region);
                 sb.Append(" SiloName=").Append(SiloName);
                 sb.Append(" UpgradeZone=").Append(UpdateZone);
                 sb.Append(" FaultZone=").Append(FaultZone);
