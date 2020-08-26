@@ -114,6 +114,20 @@ namespace Orleans.Messaging
                 copy.Remove(gateway);
                 // swap the reference, don't mutate cachedLiveGateways, so we can access cachedLiveGateways without the lock.
                 cachedLiveGateways = copy;
+                cachedLiveGatewaysSet = new HashSet<SiloAddress>(cachedLiveGateways);
+            }
+        }
+
+        public void MarkAsUnavailableForSend(SiloAddress gateway)
+        {
+            lock (lockable)
+            {
+                knownMasked[gateway] = DateTime.UtcNow;
+                var copy = new List<SiloAddress>(cachedLiveGateways);
+                copy.Remove(gateway);
+                // swap the reference, don't mutate cachedLiveGateways, so we can access cachedLiveGateways without the lock.
+                cachedLiveGateways = copy;
+                cachedLiveGatewaysSet = new HashSet<SiloAddress>(cachedLiveGateways);
             }
         }
 
@@ -272,7 +286,7 @@ namespace Orleans.Messaging
         // This function is called asynchronously from gateway refresh timer.
         private void UpdateLiveGatewaysSnapshot(IEnumerable<SiloAddress> refreshedGateways, TimeSpan maxStaleness)
         {
-            // this is a short lock, protecting the access to knownDead and cachedLiveGateways.
+            // this is a short lock, protecting the access to knownDead, knownMasked and cachedLiveGateways.
             lock (lockable)
             {
                 // now take whatever listProvider gave us and exclude those we think are dead.
@@ -300,6 +314,18 @@ namespace Orleans.Messaging
                         {
                             // Remove stale entries.
                             knownDead.Remove(address);
+                        }
+                    }
+                    if (knownMasked.TryGetValue(address, out var maskedAt))
+                    {
+                        if (now.Subtract(maskedAt) < maxStaleness)
+                        {
+                            isDead = true;
+                        }
+                        else
+                        {
+                            // Remove stale entries.
+                            knownMasked.Remove(address);
                         }
                     }
 
@@ -353,11 +379,11 @@ namespace Orleans.Messaging
                 // receive responses
                 var connectionsToKeepAlive = new List<SiloAddress>(live);
                 connectionsToKeepAlive.AddRange(knownMasked.Select(e => e.Key));
-                this.AbortEvictedGatewayConnections(connectionsToKeepAlive);
+                this.CloseEvictedGatewayConnections(connectionsToKeepAlive);
             }
         }
 
-        private void AbortEvictedGatewayConnections(List<SiloAddress> liveGateways)
+        private void CloseEvictedGatewayConnections(List<SiloAddress> liveGateways)
         {
             if (this.connectionManager == null) return;
 
@@ -378,10 +404,10 @@ namespace Orleans.Messaging
                 {
                     if (logger.IsEnabled(LogLevel.Information))
                     {
-                        this.logger.LogInformation("Aborting connection to {Endpoint} because it has been marked as dead", address);
+                        this.logger.LogInformation("Closing connection to {Endpoint} because it has been marked as dead", address);
                     }
 
-                    this.connectionManager.Abort(address);
+                    this.connectionManager.Close(address);
                 }
             }
         }
