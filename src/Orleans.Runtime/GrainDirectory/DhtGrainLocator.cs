@@ -51,12 +51,13 @@ namespace Orleans.Runtime.GrainDirectory
         {
             var tcs = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
             this.unregistrationQueue.Enqueue((tcs, address, cause));
+            // Make sure to not run the loop on the Grain Activation context
             this.taskScheduler.RunOrQueueTask(() => this.UnregisterExecute(), this.grainContext).Ignore();
             return tcs.Task;
         }
 
         public static DhtGrainLocator FromLocalGrainDirectory(LocalGrainDirectory localGrainDirectory)
-           => new DhtGrainLocator(localGrainDirectory, localGrainDirectory.Scheduler, localGrainDirectory.RemoteGrainDirectory);
+            => new DhtGrainLocator(localGrainDirectory, localGrainDirectory.Scheduler, localGrainDirectory.RemoteGrainDirectory);
 
         private async Task UnregisterExecute()
         {

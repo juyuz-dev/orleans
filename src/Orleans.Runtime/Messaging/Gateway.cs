@@ -183,7 +183,7 @@ namespace Orleans.Runtime.Messaging
                 // this will not happen, since we drop only already disconnected clients, for socket is already null. But leave this code just to be sure.
                 client.RecordDisconnection();
                 clientConnections.TryRemove(oldConnection, out _);
-                oldConnection.Close(new ConnectionAbortedException("Dropping client"));
+                oldConnection.Close();
             }
             
             MessagingStatisticsGroup.ConnectedClientCount.DecrementBy(1);
@@ -436,16 +436,19 @@ namespace Orleans.Runtime.Messaging
 
             private bool Send(Message msg, ClientState client)
             {
+                var connection = client.Connection;
+                if (connection is null) return false;
+
                 try
                 {
-                    client.Connection.Send(msg);
+                    connection.Send(msg);
                     gatewaySends.Increment();
                     return true;
                 }
                 catch (Exception exception)
                 {
-                    gateway.RecordClosedConnection(client.Connection);
-                    client.Connection.Close(new ConnectionAbortedException("Exception posting a message to sender. See InnerException for details.", exception));
+                    gateway.RecordClosedConnection(connection);
+                    connection.Abort(new ConnectionAbortedException("Exception posting a message to sender. See InnerException for details.", exception));
                     return false;
                 }
             }
