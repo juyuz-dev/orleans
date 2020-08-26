@@ -4,6 +4,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Orleans.CodeGeneration;
 using Orleans.Concurrency;
 using Orleans.Runtime;
 
@@ -246,6 +247,57 @@ namespace Orleans
         }
     }
 
+    public class SiloGrainInterfaceData : IEquatable<SiloGrainInterfaceData>
+    {
+        public SiloGrainInterfaceData()
+        {
+        }
+
+        public SiloGrainInterfaceData(Type grainInterface)
+        {
+            this.InterfaceId = GrainInterfaceUtils.GetGrainInterfaceId(grainInterface);
+            this.InterfaceVersion = GrainInterfaceUtils.GetGrainInterfaceVersion(grainInterface);
+        }
+
+        public int InterfaceId { get; set; }
+
+        public ushort InterfaceVersion { get; set; }
+
+        public override bool Equals(object obj) => this.Equals(obj as SiloGrainInterfaceData);
+
+        public bool Equals(SiloGrainInterfaceData d)
+        {
+            if (d is null)
+            {
+                return false;
+            }
+
+            if (Object.ReferenceEquals(this, d))
+            {
+                return true;
+            }
+
+            if (this.GetType() != d.GetType())
+            {
+                return false;
+            }
+
+            return this.InterfaceId == d.InterfaceId &&
+                this.InterfaceVersion == d.InterfaceVersion;
+        }
+
+        public override int GetHashCode() =>
+            this.InterfaceId.GetHashCode() ^
+            this.InterfaceVersion.GetHashCode();
+    }
+
+    public class SiloGrainTypeMap
+    {
+        public List<SiloGrainInterfaceData> SupportedGrainInterfaces { get; set; }
+
+        public List<int> SupportedGrainClasses { get; set; }
+    }
+
     [Serializable]
     public class MembershipEntry
     {
@@ -279,6 +331,10 @@ namespace Orleans
         /// If running in Azure - the name of this role instance. Set on silo startup.
         /// </summary>
         public string SiloName { get; set; }
+
+        public string Region { get; set; }
+
+        public string GrainTypeMap { get; set; }
 
         public string RoleName { get; set; } // Optional - only for Azure role  
         public int UpdateZone { get; set; }  // Optional - only for Azure role
@@ -314,6 +370,8 @@ namespace Orleans
 
                 RoleName = this.RoleName,
                 SiloName = this.SiloName,
+                Region = this.Region,
+                GrainTypeMap = this.GrainTypeMap,
                 UpdateZone = this.UpdateZone,
                 FaultZone = this.FaultZone,
 
@@ -366,7 +424,7 @@ namespace Orleans
             List<DateTime> timestamps = SuspectTimes == null
                 ? null
                 : SuspectTimes.Select(tuple => tuple.Item2).ToList();
-            return string.Format("[SiloAddress={0} SiloName={1} Status={2} HostName={3} ProxyPort={4} " +
+            return string.Format("[SiloAddress={0} SiloName={1} Status={2} HostName={3} Region={12} ProxyPort={4} " +
                                  "RoleName={5} UpdateZone={6} FaultZone={7} StartTime = {8} IAmAliveTime = {9} {10} {11}]",
                 SiloAddress.ToLongString(),
                 SiloName,
@@ -383,7 +441,8 @@ namespace Orleans
                     : "Suspecters = " + Utils.EnumerableToString(suspecters, sa => sa.ToLongString()),
                 timestamps == null
                     ? ""
-                    : "SuspectTimes = " + Utils.EnumerableToString(timestamps, LogFormatter.PrintDate)
+                    : "SuspectTimes = " + Utils.EnumerableToString(timestamps, LogFormatter.PrintDate),
+                Region
                 );
         }
     }

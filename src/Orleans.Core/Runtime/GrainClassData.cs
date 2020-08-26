@@ -8,7 +8,7 @@ namespace Orleans.Runtime
     /// Metadata for a grain class
     /// </summary>
     [Serializable]
-    internal sealed class GrainClassData
+    public sealed class GrainClassData
     {
         [NonSerialized]
         private readonly Dictionary<string, string> genericClassNames;

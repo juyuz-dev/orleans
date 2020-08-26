@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Orleans.Runtime
 {
-    internal sealed class MembershipTableSnapshot
+    public sealed class MembershipTableSnapshot
     {
         public MembershipTableSnapshot(
             MembershipVersion version,

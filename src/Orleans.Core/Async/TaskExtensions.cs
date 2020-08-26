@@ -67,7 +67,7 @@ namespace Orleans.Internal
 
             async Task<object> ConvertAsync(Task<T> asyncTask)
             {
-                return await asyncTask.ConfigureAwait(false);
+                return await asyncTask;
             }
         }
 
@@ -98,7 +98,7 @@ namespace Orleans.Internal
 
             async Task<T> ConvertAsync(Task<object> asyncTask)
             {
-                var result = await asyncTask.ConfigureAwait(false);
+                var result = await asyncTask;
 
                 if (result is null)
                 {
@@ -336,14 +336,14 @@ namespace Orleans.Internal
             using (cancellationToken.Register(() =>
                       tcs.TrySetCanceled(cancellationToken), useSynchronizationContext: false))
             {
-                var firstToComplete = await Task.WhenAny(task, tcs.Task).ConfigureAwait(false);
+                var firstToComplete = await Task.WhenAny(task, tcs.Task);
 
                 if (firstToComplete != task)
                 {
                     task.Ignore();
                 }
 
-                await firstToComplete.ConfigureAwait(false);
+                await firstToComplete;
             }
         }
 
@@ -399,14 +399,14 @@ namespace Orleans.Internal
             using (cancellationToken.Register(() =>
                       tcs.TrySetCanceled(cancellationToken), useSynchronizationContext: false))
             {
-                var firstToComplete = await Task.WhenAny(task, tcs.Task).ConfigureAwait(false);
+                var firstToComplete = await Task.WhenAny(task, tcs.Task);
 
                 if (firstToComplete != task)
                 {
                     task.Ignore();
                 }
 
-                return await firstToComplete.ConfigureAwait(false);
+                return await firstToComplete;
             }
         }
 

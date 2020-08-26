@@ -26,14 +26,14 @@ namespace Orleans.Hosting
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             this.logger.LogInformation("Starting Orleans Silo.");
-            await this.siloHost.StartAsync(cancellationToken).ConfigureAwait(false);
+            await this.siloHost.StartAsync(cancellationToken);
             this.logger.LogInformation("Orleans Silo started.");
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
             this.logger.LogInformation("Stopping Orleans Silo");
-            await this.siloHost.StopAsync(cancellationToken).ConfigureAwait(false);
+            await this.siloHost.StopAsync(cancellationToken);
             this.logger.LogInformation("Orleans Silo stopped.");
         }
 

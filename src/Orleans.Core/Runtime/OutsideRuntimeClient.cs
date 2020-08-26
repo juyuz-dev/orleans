@@ -189,7 +189,7 @@ namespace Orleans
         {
             // Deliberately avoid capturing the current synchronization context during startup and execute on the default scheduler.
             // This helps to avoid any issues (such as deadlocks) caused by executing with the client's synchronization context/scheduler.
-            await Task.Run(() => this.StartInternal(retryFilter)).ConfigureAwait(false);
+            await Task.Run(() => this.StartInternal(retryFilter));
 
             logger.Info(ErrorCode.ProxyClient_StartDone, "{0} Started OutsideRuntimeClient with Global Client ID: {1}", BARS, CurrentActivationAddress.ToString() + ", client GUID ID: " + clientId);
         }
@@ -253,6 +253,13 @@ namespace Orleans
 
         private void HandleMessage(Message message)
         {
+            if (message.CloseRequested)
+            {
+                this.logger.LogInformation("Gateway {Gateway} request us to stop sending message to it", message.SendingSilo);
+                this.MessageCenter.StopSendingMessageTo(message.SendingSilo);
+                return;
+            }
+
             switch (message.Direction)
             {
                 case Message.Directions.Response:

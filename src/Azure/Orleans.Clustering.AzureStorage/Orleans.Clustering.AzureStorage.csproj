@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="$(MicrosoftAzureCosmosTableVersion)" />
+    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.7" />
   </ItemGroup>
 
   <ItemGroup>

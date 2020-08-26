@@ -67,7 +67,7 @@ namespace Orleans.Storage
                 {
                     using (var stream = new MemoryStream())
                     {
-                        await blob.DownloadToStreamAsync(stream).ConfigureAwait(false);
+                        await blob.DownloadToStreamAsync(stream);
                         contents = stream.ToArray();
                     }
                 }
@@ -148,7 +148,7 @@ namespace Orleans.Storage
                 var blob = container.GetBlockBlobReference(blobName);
 
                 await DoOptimisticUpdate(() => blob.DeleteIfExistsAsync(DeleteSnapshotsOption.None, AccessCondition.GenerateIfMatchCondition(grainState.ETag), null, null),
-                    blob, grainState.ETag).ConfigureAwait(false);
+                    blob, grainState.ETag);
 
                 grainState.ETag = null;
 
@@ -169,7 +169,7 @@ namespace Orleans.Storage
             try
             {
                 await DoOptimisticUpdate(() => blob.UploadFromByteArrayAsync(contents, 0, contents.Length, AccessCondition.GenerateIfMatchCondition(grainState.ETag), null, null),
-                    blob, grainState.ETag).ConfigureAwait(false);
+                    blob, grainState.ETag);
 
                 grainState.ETag = blob.Properties.ETag;
             }
@@ -177,9 +177,9 @@ namespace Orleans.Storage
             {
                 // if the container does not exist, create it, and make another attempt
                 if (this.logger.IsEnabled(LogLevel.Trace)) this.logger.Trace((int)AzureProviderErrorCode.AzureBlobProvider_ContainerNotFound, "Creating container: GrainType={0} Grainid={1} ETag={2} to BlobName={3} in Container={4}", grainType, grainId, grainState.ETag, blob.Name, container.Name);
-                await container.CreateIfNotExistsAsync().ConfigureAwait(false);
+                await container.CreateIfNotExistsAsync();
 
-                await WriteStateAndCreateContainerIfNotExists(grainType, grainId, grainState, contents, blob).ConfigureAwait(false);
+                await WriteStateAndCreateContainerIfNotExists(grainType, grainId, grainState, contents, blob);
             }
         }
 
@@ -187,7 +187,7 @@ namespace Orleans.Storage
         {
             try
             {
-                await updateOperation.Invoke().ConfigureAwait(false);
+                await updateOperation.Invoke();
             }
             catch (StorageException ex) when (ex.IsPreconditionFailed() || ex.IsConflict())
             {
@@ -216,7 +216,7 @@ namespace Orleans.Storage
                 var account = CloudStorageAccount.Parse(this.options.ConnectionString);
                 var blobClient = account.CreateCloudBlobClient();
                 container = blobClient.GetContainerReference(this.options.ContainerName);
-                await container.CreateIfNotExistsAsync().ConfigureAwait(false);
+                await container.CreateIfNotExistsAsync();
                 stopWatch.Stop();
                 this.logger.LogInformation((int)AzureProviderErrorCode.AzureBlobProvider_InitProvider, $"Initializing provider {this.name} of type {this.GetType().Name} in stage {this.options.InitStage} took {stopWatch.ElapsedMilliseconds} Milliseconds.");
             }

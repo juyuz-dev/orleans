@@ -15,21 +15,24 @@ namespace Orleans.Runtime
     /// Grain type meta data
     /// </summary>
     [Serializable]
-    internal class GrainTypeData
+    public class GrainTypeData
     {
         internal Type Type { get; private set; }
         internal string GrainClass { get; private set; }
         internal List<Type> RemoteInterfaceTypes { get; private set; }
         internal bool IsReentrant { get; private set; }
         internal bool IsStatelessWorker { get; private set; }
+        internal bool IsGlobalPlacement { get; private set; }
         internal Func<InvokeMethodRequest, bool> MayInterleave { get; private set; }
-   
+
         public GrainTypeData(Type type)
         {
             Type = type;
             this.IsReentrant = type.IsDefined(typeof(ReentrantAttribute), true);
             // TODO: shouldn't this use GrainInterfaceUtils.IsStatelessWorker?
             this.IsStatelessWorker = type.IsDefined(typeof(StatelessWorkerAttribute), true);
+            this.IsGlobalPlacement = type.IsDefined(typeof(GlobalRandomPlacementAttribute), true);
+
             this.GrainClass = TypeUtils.GetFullName(type);
             RemoteInterfaceTypes = GetRemoteInterfaces(type);
             this.MayInterleave = GetMayInterleavePredicate(type) ?? (_ => false);
@@ -129,8 +132,8 @@ namespace Orleans.Runtime
                     $"Class {grainType.FullName} doesn't declare public static method " +
                     $"with name {callbackMethodName} specified in MayInterleave attribute");
 
-            if (method.ReturnType != typeof(bool) || 
-                method.GetParameters().Length != 1 || 
+            if (method.ReturnType != typeof(bool) ||
+                method.GetParameters().Length != 1 ||
                 method.GetParameters()[0].ParameterType != typeof(InvokeMethodRequest))
                 throw new InvalidOperationException(
                     $"Wrong signature of callback method {callbackMethodName} " +

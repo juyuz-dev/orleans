@@ -32,7 +32,7 @@ namespace Orleans.Hosting
         /// <inheritdoc />
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            await this.silo.StartAsync(cancellationToken).ConfigureAwait(false);
+            await this.silo.StartAsync(cancellationToken);
             this.applicationLifetime?.NotifyStarted();
         }
 

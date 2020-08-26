@@ -65,7 +65,7 @@ namespace Orleans.Runtime
             {
                 if (!this.Members.TryGetValue(entry.Key, out var newEntry))
                 {
-                    changes.Add(new ClusterMember(entry.Key, SiloStatus.Dead));
+                    changes.Add(new ClusterMember(entry.Key, SiloStatus.Dead, entry.Value.Region));
                 }
             }
 

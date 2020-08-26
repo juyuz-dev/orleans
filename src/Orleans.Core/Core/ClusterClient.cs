@@ -113,7 +113,7 @@ namespace Orleans
         public async Task Connect(Func<Exception, Task<bool>> retryFilter = null)
         {
             this.ThrowIfDisposedOrAlreadyInitialized();
-            using (await this.initLock.LockAsync().ConfigureAwait(false))
+            using (await this.initLock.LockAsync())
             {
                 this.ThrowIfDisposedOrAlreadyInitialized();
                 if (this.state == LifecycleState.Starting)
@@ -122,8 +122,8 @@ namespace Orleans
                 }
                 
                 this.state = LifecycleState.Starting;
-                if (this.runtimeClient is OutsideRuntimeClient orc) await orc.Start(retryFilter).ConfigureAwait(false);
-                await this.clusterClientLifecycle.OnStart().ConfigureAwait(false);
+                if (this.runtimeClient is OutsideRuntimeClient orc) await orc.Start(retryFilter);
+                await this.clusterClientLifecycle.OnStart();
                 this.state = LifecycleState.Started;
             }
 
@@ -140,7 +140,7 @@ namespace Orleans
         {
             if (this.IsDisposing) return;
             this.applicationLifetime?.StopApplication();
-            using (await this.initLock.LockAsync().ConfigureAwait(false))
+            using (await this.initLock.LockAsync())
             {
                 if (this.state == LifecycleState.Disposed) return;
                 try

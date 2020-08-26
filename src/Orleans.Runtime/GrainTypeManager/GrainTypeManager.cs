@@ -14,7 +14,7 @@ using Orleans.Utilities;
 
 namespace Orleans.Runtime
 {
-    internal class GrainTypeManager
+    public class GrainTypeManager
     {
         private Dictionary<SiloAddress, GrainInterfaceMap> grainInterfaceMapsBySilo;
         private Dictionary<int, List<SiloAddress>> supportedSilosByTypeCode;
@@ -189,10 +189,10 @@ namespace Orleans.Runtime
         private void InitializeInterfaceMap()
         {
             foreach (GrainTypeData grainType in grainTypes.Values)
-                AddToGrainInterfaceToClassMap(grainType.Type, grainType.RemoteInterfaceTypes, grainType.IsStatelessWorker);
+                AddToGrainInterfaceToClassMap(grainType.Type, grainType.RemoteInterfaceTypes, grainType.IsStatelessWorker, grainType.IsGlobalPlacement);
         }
 
-        private void AddToGrainInterfaceToClassMap(Type grainClass, IEnumerable<Type> grainInterfaces, bool isUnordered)
+        private void AddToGrainInterfaceToClassMap(Type grainClass, IEnumerable<Type> grainInterfaces, bool isUnordered, bool isGlobalPlacement)
         {
             var placement = GrainTypeData.GetPlacementStrategy(grainClass, this.defaultPlacementStrategy);
             var directory = GrainTypeData.GetGrainDirectory(grainClass);
@@ -205,6 +205,9 @@ namespace Orleans.Runtime
 
             if (isUnordered)
                 grainInterfaceMap.AddToUnorderedList(grainClass);
+
+            if (isGlobalPlacement)
+                grainInterfaceMap.AddToGlobalPlacementsList(grainClass);
         }
 
 
