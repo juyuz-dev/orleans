@@ -57,9 +57,9 @@ namespace Orleans.Connections.Security
         public RemoteCertificateValidator RemoteCertificateValidation { get; set; }
 
         /// <summary>
-        /// Specifies allowable SSL protocols. Defaults to <see cref="SslProtocols.Tls12" /> and <see cref="SslProtocols.Tls11"/>.
+        /// Specifies allowable SSL protocols. Defaults to <see cref="SslProtocols.Tls12" />.
         /// </summary>
-        public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls12 | SslProtocols.Tls11;
+        public SslProtocols SslProtocols { get; set; } = SslProtocols.Tls12;
 
         /// <summary>
         /// Specifies whether the certificate revocation list is checked during authentication.

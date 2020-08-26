@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Orleans.Runtime.MembershipService
 {
-    internal interface IMembershipGossiper
+    public interface IMembershipGossiper
     {
         Task GossipToRemoteSilos(
             List<SiloAddress> gossipPartners,

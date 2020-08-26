@@ -9,11 +9,12 @@ namespace Orleans.Runtime
     /// Internal data structure that holds a grain interfaces to grain classes map.
     /// </summary>
     [Serializable]
-    internal class GrainInterfaceMap
+    public class GrainInterfaceMap
     {
         private readonly Dictionary<string, GrainInterfaceData> typeToInterfaceData;
         private readonly Dictionary<int, GrainInterfaceData> table;
         private readonly HashSet<int> unordered;
+        private readonly HashSet<int> globalPlacements;
 
         private readonly Dictionary<int, GrainClassData> implementationIndex;
         private readonly Dictionary<int, PlacementStrategy> placementStrategiesIndex;
@@ -51,6 +52,7 @@ namespace Orleans.Runtime
             registrationStrategiesIndex = new Dictionary<int, MultiClusterRegistrationStrategy>(); // init to avoid nullref in previous versions
             directoriesIndex = new Dictionary<int, string>();
             unordered = new HashSet<int>();
+            globalPlacements = new HashSet<int>();
             this.localTestMode = localTestMode;
             this.defaultPlacementStrategy = defaultPlacementStrategy;
             if(localTestMode) // if we are running in test mode, we'll build a list of loaded grain assemblies to help with troubleshooting deployment issue
@@ -78,6 +80,11 @@ namespace Orleans.Runtime
             foreach (var grainClassTypeCode in map.unordered)
             {
                 unordered.Add(grainClassTypeCode);
+            }
+
+            foreach (var grainClassTypeCode in map.globalPlacements)
+            {
+                globalPlacements.Add(grainClassTypeCode);
             }
 
             foreach (var kvp in map.implementationIndex)
@@ -251,9 +258,21 @@ namespace Orleans.Runtime
                 unordered.Add(grainClassTypeCode);
         }
 
+        public void AddToGlobalPlacementsList(Type grainClass)
+        {
+            var grainClassTypeCode = GrainInterfaceUtils.GetGrainClassTypeCode(grainClass);
+            if (!globalPlacements.Contains(grainClassTypeCode))
+                globalPlacements.Add(grainClassTypeCode);
+        }
+
         public bool IsUnordered(int grainTypeCode)
         {
             return unordered.Contains(grainTypeCode);
+        }
+
+        public bool IsGlobalPlacement(int grainTypeCode)
+        {
+            return this.globalPlacements.Contains(grainTypeCode);
         }
 
         public IGrainTypeResolver GetGrainTypeResolver()

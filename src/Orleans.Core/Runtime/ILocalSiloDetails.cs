@@ -30,5 +30,7 @@ namespace Orleans.Runtime
         /// Gets the address of this silo's gateway proxy endpoint.
         /// </summary>
         SiloAddress GatewayAddress { get; }
+
+        string Region { get; }
     }
 }

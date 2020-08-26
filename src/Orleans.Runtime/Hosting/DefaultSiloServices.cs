@@ -117,7 +117,7 @@ namespace Orleans.Hosting
             services.TryAddSingleton<ActivationCollector>();
             services.TryAddSingleton<LocalGrainDirectory>();
             services.TryAddFromExisting<ILocalGrainDirectory, LocalGrainDirectory>();
-            services.AddSingleton<DhtGrainLocator>();
+            services.AddSingleton<DhtGrainLocator>(sp => DhtGrainLocator.FromLocalGrainDirectory(sp.GetService<LocalGrainDirectory>()));
             services.AddSingleton<IGrainDirectoryResolver, GrainDirectoryResolver>();
             if (GrainDirectoryResolver.HasAnyRegisteredGrainDirectory(services))
             {
@@ -145,9 +145,45 @@ namespace Orleans.Hosting
             services.TryAddSingleton<DeploymentLoadPublisher>();
 
             services.TryAddSingleton<IAsyncTimerFactory, AsyncTimerFactory>();
+
             services.TryAddSingleton<MembershipTableManager>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableManager>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableManager>();
+
+            bool useGlobalClustering = services.Any(s => s.ServiceType == typeof(IGlobalMembershipTable));
+
+            if (useGlobalClustering)
+            {
+                services.AddPlacementDirector<GlobalRandomPlacement, GlobalRandomPlacementDirector>();
+                services.AddPlacementDirector<GlobalPreferLocalPlacement, GlobalPreferLocalPlacementDirector>();
+                services.TryAddSingleton<GlobalMembershipGossiper>();
+
+                services.TryAddSingleton<GlobalMembershipTableManager>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableManager>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableManager>();
+
+                services.AddSingleton<GlobalClusterHealthMonitor>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterHealthMonitor>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterHealthMonitor>();
+
+                services.AddSingleton<GlobalClusterMembershipAgent>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipAgent>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalClusterMembershipAgent>();
+
+                services.AddSingleton<GlobalClusterMembershipService>();
+                services.TryAddFromExisting<IGlobalClusterMembershipService, GlobalClusterMembershipService>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalClusterMembershipService>();
+
+                services.AddSingleton<GlobalMembershipTableCleanupAgent>();
+                services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, GlobalMembershipTableCleanupAgent>();
+                services.AddFromExisting<IHealthCheckParticipant, GlobalMembershipTableCleanupAgent>();
+            }
+            else
+            {
+                services.AddPlacementDirector<GlobalRandomPlacement, RandomPlacementDirector>();
+                services.AddPlacementDirector<GlobalPreferLocalPlacement, PreferLocalPlacementDirector>();
+            }
+
             services.TryAddSingleton<MembershipSystemTarget>();
             services.AddFromExisting<IMembershipService, MembershipSystemTarget>();
             services.TryAddSingleton<IMembershipGossiper, MembershipGossiper>();
@@ -157,9 +193,11 @@ namespace Orleans.Hosting
             services.AddSingleton<ClusterHealthMonitor>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, ClusterHealthMonitor>();
             services.AddFromExisting<IHealthCheckParticipant, ClusterHealthMonitor>();
+
             services.AddSingleton<MembershipAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipAgent>();
+
             services.AddSingleton<MembershipTableCleanupAgent>();
             services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, MembershipTableCleanupAgent>();
             services.AddFromExisting<IHealthCheckParticipant, MembershipTableCleanupAgent>();
@@ -243,7 +281,7 @@ namespace Orleans.Hosting
             services.TryAddSingleton<IConsistentRingProvider>(
                 sp =>
                 {
-                    // TODO: make this not sux - jbragg
+                    // TODO: make this not - jbragg
                     var consistentRingOptions = sp.GetRequiredService<IOptions<ConsistentRingOptions>>().Value;
                     var siloDetails = sp.GetRequiredService<ILocalSiloDetails>();
                     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
@@ -258,7 +296,7 @@ namespace Orleans.Hosting
             services.TryAddSingleton(typeof(IKeyedServiceCollection<,>), typeof(KeyedServiceCollection<,>));
 
             // Serialization
-            services.TryAddSingleton<SerializationManager>(sp=>ActivatorUtilities.CreateInstance<SerializationManager>(sp,
+            services.TryAddSingleton<SerializationManager>(sp => ActivatorUtilities.CreateInstance<SerializationManager>(sp,
                 sp.GetRequiredService<IOptions<SiloMessagingOptions>>().Value.LargeMessageWarningThreshold));
             services.TryAddSingleton<ITypeResolver, CachedTypeResolver>();
             services.TryAddSingleton<IFieldUtils, FieldUtils>();

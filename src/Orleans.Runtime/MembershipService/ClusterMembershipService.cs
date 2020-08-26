@@ -53,6 +53,7 @@ namespace Orleans.Runtime
                 {
                     if (!didRefresh || this.membershipTableManager.MembershipTableSnapshot.Version < v)
                     {
+
                         await this.membershipTableManager.Refresh();
                         didRefresh = true;
                     }

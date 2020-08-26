@@ -74,7 +74,21 @@ namespace Orleans.GrainDirectory.AzureStorage
             var entry = GrainDirectoryEntity.FromGrainAddress(this.clusterId, address);
             var result = await this.tableDataManager.InsertTableEntryAsync(entry);
             // Possible race condition?
-            return result.isSuccess ? address : await Lookup(address.GrainId);
+
+            if (result.isSuccess)
+            {
+                return address;
+            }
+
+            var lookupResult = await Lookup(address.GrainId);
+            if (lookupResult == null)
+            {
+                // It's not replicated to secondary yet. Retry after 100ms.
+                await Task.Delay(100);
+                lookupResult = await Lookup(address.GrainId);
+            }
+
+            return lookupResult;
         }
 
         public async Task Unregister(GrainAddress address)

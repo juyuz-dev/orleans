@@ -35,6 +35,8 @@ namespace Orleans.GrainDirectory.AzureStorage
         public int MaxCreationRetries { get; set; } = 60;
         public int MaxOperationRetries { get; set; } = 5;
 
+        public string PreferredRegion { get; set; } = string.Empty;
+
         public TimeSpan PauseBetweenCreationRetries { get; set; } = TimeSpan.FromSeconds(1);
 
         public TimeSpan PauseBetweenOperationRetries { get; set; } = TimeSpan.FromMilliseconds(100);

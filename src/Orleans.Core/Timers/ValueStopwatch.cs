@@ -6,7 +6,7 @@ namespace Orleans.Runtime
     /// <summary>
     /// Non-allocating stopwatch for timing durations.
     /// </summary>
-    internal struct ValueStopwatch
+    public struct ValueStopwatch
     {
         private static readonly double TimestampToTicks = TimeSpan.TicksPerSecond / (double) Stopwatch.Frequency;
         private long value;

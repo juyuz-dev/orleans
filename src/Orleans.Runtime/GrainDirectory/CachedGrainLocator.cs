@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Orleans.Configuration;
 using Orleans.GrainDirectory;
 using Orleans.Internal;
+using Orleans.Runtime.MembershipService;
+using Orleans.Runtime.Utilities;
 
 namespace Orleans.Runtime.GrainDirectory
 {
@@ -20,30 +21,56 @@ namespace Orleans.Runtime.GrainDirectory
         private readonly IGrainDirectoryResolver grainDirectoryResolver;
         private readonly DhtGrainLocator inClusterGrainLocator;
         private readonly IGrainDirectoryCache cache;
+        private readonly GrainTypeManager grainTypeManager;
+        private readonly IServiceProvider serviceProvider;
+        private readonly IConfiguration configuration;
 
         private readonly CancellationTokenSource shutdownToken = new CancellationTokenSource();
         private readonly IClusterMembershipService clusterMembershipService;
+        private readonly IGlobalClusterMembershipService globalClusterMembershipService;
 
         private HashSet<SiloAddress> knownDeadSilos = new HashSet<SiloAddress>();
 
+        private HashSet<SiloAddress> knownDeadGlobalSilos = new HashSet<SiloAddress>();
+
+        private Dictionary<SiloAddress, string> siloRegionMap = new Dictionary<SiloAddress, string>();
+
         private Task listenToClusterChangeTask;
+        private Task listenToGlobalClusterChangeTask;
 
         internal interface ITestAccessor
         {
             MembershipVersion LastMembershipVersion { get; set; }
+
+            MembershipVersion LastGlobalMembershipVersion { get; set; }
         }
 
         MembershipVersion ITestAccessor.LastMembershipVersion { get; set; }
 
+        MembershipVersion ITestAccessor.LastGlobalMembershipVersion { get; set; }
+
         public CachedGrainLocator(
             IGrainDirectoryResolver grainDirectoryResolver,
             DhtGrainLocator inClusterGrainLocator,
-            IClusterMembershipService clusterMembershipService)
+            IClusterMembershipService clusterMembershipService,
+            GrainTypeManager grainTypeManager,
+            IServiceProvider serviceProvider,
+            IConfiguration configuration)
         {
             this.grainDirectoryResolver = grainDirectoryResolver;
             this.inClusterGrainLocator = inClusterGrainLocator;
             this.clusterMembershipService = clusterMembershipService;
-            this.cache = new LRUBasedGrainDirectoryCache(GrainDirectoryOptions.DEFAULT_CACHE_SIZE, GrainDirectoryOptions.DEFAULT_MAXIMUM_CACHE_TTL);
+            this.grainTypeManager = grainTypeManager;
+            this.serviceProvider = serviceProvider;
+
+            // In our current design, we won't change the activation address very often.
+            // And it's usually changed when the silo is dead, and we can handle the dead silo properly.
+            // Change from default 4min ---> 15min
+            TimeSpan ttl = TimeSpan.FromMinutes(15);
+            this.cache = new LRUBasedGrainDirectoryCache(GrainDirectoryOptions.DEFAULT_CACHE_SIZE, ttl);
+
+            this.globalClusterMembershipService = this.serviceProvider.GetService<IGlobalClusterMembershipService>();
+            this.configuration = configuration;
         }
 
         public async Task<List<ActivationAddress>> Lookup(GrainId grainId)
@@ -67,7 +94,7 @@ namespace Orleans.Runtime.GrainDirectory
             var activationAddress = entry.ToActivationAddress();
 
             // Check if the entry is pointing to a dead silo
-            if (this.knownDeadSilos.Contains(activationAddress.Silo))
+            if (this.IsDead(grainId, activationAddress.Silo))
             {
                 // Remove it from the directory
                 await GetGrainDirectory(grainId).Unregister(entry);
@@ -94,7 +121,7 @@ namespace Orleans.Runtime.GrainDirectory
             var activationAddress = result.ToActivationAddress();
 
             // Check if the entry point to a dead silo
-            if (this.knownDeadSilos.Contains(activationAddress.Silo))
+            if (this.IsDead(grainId, activationAddress.Silo))
             {
                 // Remove outdated entry and retry to register
                 await GetGrainDirectory(grainId).Unregister(result);
@@ -119,7 +146,7 @@ namespace Orleans.Runtime.GrainDirectory
                 var result = results[0];
 
                 // If the silo is dead, remove the entry
-                if (this.knownDeadSilos.Contains(result.Item1))
+                if (this.IsDead(grainId, result.Item1))
                 {
                     this.cache.Remove(grainId);
                 }
@@ -151,7 +178,12 @@ namespace Orleans.Runtime.GrainDirectory
         {
             Task OnStart(CancellationToken ct)
             {
-                this.listenToClusterChangeTask = ListenToClusterChange();
+                this.listenToClusterChangeTask = ListenToClusterChange(this.clusterMembershipService, false);
+
+                if (this.globalClusterMembershipService != null)
+                {
+                    this.listenToGlobalClusterChangeTask = ListenToClusterChange(this.globalClusterMembershipService, true);
+                }
                 return Task.CompletedTask;
             };
             async Task OnStop(CancellationToken ct)
@@ -159,29 +191,82 @@ namespace Orleans.Runtime.GrainDirectory
                 this.shutdownToken.Cancel();
                 if (listenToClusterChangeTask != default && !ct.IsCancellationRequested)
                     await listenToClusterChangeTask.WithCancellation(ct);
+
+                if (this.listenToGlobalClusterChangeTask != default && !ct.IsCancellationRequested)
+                    await this.listenToGlobalClusterChangeTask.WithCancellation(ct);
             };
             lifecycle.Subscribe(nameof(CachedGrainLocator), ServiceLifecycleStage.RuntimeGrainServices, OnStart, OnStop);
         }
 
+        private bool IsDead(GrainId grainId, SiloAddress silo)
+        {
+            if (this.grainTypeManager != null &&
+                this.grainTypeManager.ClusterGrainInterfaceMap.IsGlobalPlacement(grainId.TypeCode))
+            {
+                if (this.knownDeadGlobalSilos.Contains(silo))
+                {
+                    return true;
+                }
+
+                if (this.siloRegionMap.TryGetValue(silo, out string targetRegion))
+                {
+                    var excludedRegions = FailoverUtility.GetExcludedRegions(this.configuration);
+                    return !string.IsNullOrEmpty(targetRegion) && excludedRegions.Contains(targetRegion);
+                }
+
+                return false;
+            }
+
+            return this.knownDeadSilos.Contains(silo);
+        }
+
         private IGrainDirectory GetGrainDirectory(GrainId grainId) => this.grainDirectoryResolver.Resolve(grainId);
 
-        private async Task ListenToClusterChange()
+        private async Task ListenToClusterChange(IClusterMembershipService membershipService, bool isGlobal)
         {
-            var previousSnapshot = this.clusterMembershipService.CurrentSnapshot;
+            var previousSnapshot = membershipService.CurrentSnapshot;
             // Update the list of known dead silos for lazy filtering for the first time
-            this.knownDeadSilos = new HashSet<SiloAddress>(previousSnapshot.Members.Values
+            var tempDeadSilos = new HashSet<SiloAddress>(previousSnapshot.Members.Values
                 .Where(m => m.Status == SiloStatus.Dead)
                 .Select(m => m.SiloAddress));
 
-            ((ITestAccessor)this).LastMembershipVersion = previousSnapshot.Version;
+            if (isGlobal)
+            {
+                this.knownDeadGlobalSilos = tempDeadSilos;
+                ((ITestAccessor)this).LastGlobalMembershipVersion = previousSnapshot.Version;
 
-            var updates = this.clusterMembershipService.MembershipUpdates.WithCancellation(this.shutdownToken.Token);
+                this.siloRegionMap = previousSnapshot.Members.Values
+                    .Where(m => m.Status != SiloStatus.Dead)
+                    .ToDictionary(m => m.SiloAddress, m => m.Region);
+            }
+            else
+            {
+                this.knownDeadSilos = tempDeadSilos;
+                ((ITestAccessor)this).LastMembershipVersion = previousSnapshot.Version;
+            }
+
+            var updates = membershipService.MembershipUpdates.WithCancellation(this.shutdownToken.Token);
             await foreach (var snapshot in updates)
             {
                 // Update the list of known dead silos for lazy filtering
-                this.knownDeadSilos = new HashSet<SiloAddress>(snapshot.Members.Values
+                tempDeadSilos = new HashSet<SiloAddress>(snapshot.Members.Values
                     .Where(m => m.Status.IsTerminating())
                     .Select(m => m.SiloAddress));
+
+                if (isGlobal)
+                {
+                    this.knownDeadGlobalSilos = tempDeadSilos;
+                    ((ITestAccessor)this).LastGlobalMembershipVersion = previousSnapshot.Version;
+
+                    this.siloRegionMap = snapshot.Members.Values
+                        .Where(m => !m.Status.IsTerminating())
+                        .ToDictionary(m => m.SiloAddress, m => m.Region);
+                }
+                else
+                {
+                    this.knownDeadSilos = tempDeadSilos;
+                    ((ITestAccessor)this).LastMembershipVersion = previousSnapshot.Version;
+                }
 
                 // Active filtering: detect silos that went down and try to clean proactively the directory
                 var changes = snapshot.CreateUpdate(previousSnapshot).Changes;
@@ -199,8 +284,6 @@ namespace Orleans.Runtime.GrainDirectory
                     }
                     await Task.WhenAll(tasks).WithCancellation(this.shutdownToken.Token);
                 }
-
-                ((ITestAccessor)this).LastMembershipVersion = snapshot.Version;
             }
         }
     }

@@ -28,4 +28,8 @@ namespace Orleans.GrainDirectory.AzureStorage
         public override string TableName { get; set; } = DEFAULT_TABLE_NAME;
         public const string DEFAULT_TABLE_NAME = "OrleansSiloInstances";
     }
+
+    public class AzureStorageClusteringGlobalOptions : AzureStorageClusteringOptions
+    {
+    }
 }

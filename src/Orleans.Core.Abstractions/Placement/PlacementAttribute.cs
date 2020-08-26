@@ -34,6 +34,15 @@ namespace Orleans.Placement
         }
     }
 
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    public sealed class GlobalRandomPlacementAttribute : PlacementAttribute
+    {
+        public GlobalRandomPlacementAttribute() :
+            base(GlobalRandomPlacement.Singleton)
+        {
+        }
+    }
+
     /// <summary>
     /// Marks a grain class as using the <c>HashBasedPlacement</c> policy.
     /// </summary>
@@ -53,6 +62,15 @@ namespace Orleans.Placement
     {
         public PreferLocalPlacementAttribute() :
             base(PreferLocalPlacement.Singleton)
+        {
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
+    public sealed class GlobalPreferLocalPlacementAttribute : PlacementAttribute
+    {
+        public GlobalPreferLocalPlacementAttribute() :
+            base(GlobalPreferLocalPlacement.Singleton)
         {
         }
     }

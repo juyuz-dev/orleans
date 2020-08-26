@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.IO;
 using Orleans.Concurrency;
@@ -63,7 +63,7 @@ namespace Orleans.Serialization.ProtobufNet
                 // The way we write the data is potentially in-efficinet, 
                 // since we are first writing to ProtoBuff's internal CodedOutputStream
                 // and then take its internal byte[] and write it into out own BinaryTokenStreamWriter.
-                // Writing byte[] to BinaryTokenStreamWriter may sometimes copy the byte[] and sometimes just append ass ArraySegment without copy.
+                // Writing byte[] to BinaryTokenStreamWriter may sometimes copy the byte[] and sometimes just append as ArraySegment without copy.
                 // In the former case it will be a secodnd copy.
                 // It would be more effecient to write directly into BinaryTokenStreamWriter
                 // but protobuff does not currently support writing directly into a given arbitary stream

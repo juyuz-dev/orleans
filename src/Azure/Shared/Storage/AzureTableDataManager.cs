@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Microsoft.Azure.Cosmos.Table;
+using Microsoft.Azure.Documents;
 using Microsoft.Extensions.Logging;
 using Orleans.Internal;
 using Orleans.Runtime;
@@ -146,7 +147,7 @@ namespace Orleans.GrainDirectory.AzureStorage
         /// <returns>Completion promise for this operation.</returns>
         public async Task ClearTableAsync()
         {
-            IEnumerable<Tuple<T,string>> items = await ReadAllTableEntriesAsync();
+            IEnumerable<Tuple<T, string>> items = await ReadAllTableEntriesAsync();
             IEnumerable<Task> work = items.GroupBy(item => item.Item1.PartitionKey)
                                           .SelectMany(partition => partition.ToBatch(this.StoragePolicyOptions.MaxBulkUpdateRows))
                                           .Select(batch => DeleteTableEntriesAsync(batch.ToList()));
@@ -359,6 +360,10 @@ namespace Orleans.GrainDirectory.AzureStorage
                     await Table.ExecuteAsync(TableOperation.Delete(data));
 
                 }
+                catch (StorageException se) when (se?.RequestInformation?.HttpStatusCode == (int)HttpStatusCode.NotFound)
+                {
+                    return;
+                }
                 catch (Exception exc)
                 {
                     Logger.Warn((int)Utilities.ErrorCode.AzureTable_08,
@@ -536,8 +541,8 @@ namespace Orleans.GrainDirectory.AzureStorage
                     // Data was read successfully if we got to here
                     return results.Select(i => Tuple.Create(i, i.ETag)).ToList();
 
-            }
-            catch (Exception exc)
+                }
+                catch (Exception exc)
                 {
                     // Out of retries...
                     var errorMsg = $"Failed to read Azure storage table {TableName}: {exc.Message}";
@@ -720,6 +725,12 @@ namespace Orleans.GrainDirectory.AzureStorage
                 operationsClient.DefaultRequestOptions.ServerTimeout = this.StoragePolicyOptions.OperationTimeout;
                 // Values supported can be AtomPub, Json, JsonFullMetadata or JsonNoMetadata with Json being the default value
                 operationsClient.DefaultRequestOptions.PayloadFormat = TablePayloadFormat.JsonNoMetadata;
+
+                if (!string.IsNullOrEmpty(this.StoragePolicyOptions.PreferredRegion))
+                {
+                    operationsClient.TableClientConfiguration.CosmosExecutorConfiguration.CurrentRegion = this.StoragePolicyOptions.PreferredRegion;
+                }
+
                 return operationsClient;
             }
             catch (Exception exc)
@@ -735,6 +746,12 @@ namespace Orleans.GrainDirectory.AzureStorage
             {
                 CloudStorageAccount storageAccount = AzureTableUtils.GetCloudStorageAccount(ConnectionString);
                 CloudTableClient creationClient = storageAccount.CreateCloudTableClient();
+
+                if (!string.IsNullOrEmpty(this.StoragePolicyOptions.PreferredRegion))
+                {
+                    creationClient.TableClientConfiguration.CosmosExecutorConfiguration.CurrentRegion = this.StoragePolicyOptions.PreferredRegion;
+                }
+
                 creationClient.DefaultRequestOptions.RetryPolicy = this.StoragePolicyOptions.CreationRetryPolicy;
                 creationClient.DefaultRequestOptions.ServerTimeout = this.StoragePolicyOptions.CreationTimeout;
                 // Values supported can be AtomPub, Json, JsonFullMetadata or JsonNoMetadata with Json being the default value
@@ -755,8 +772,8 @@ namespace Orleans.GrainDirectory.AzureStorage
             if (AzureTableUtils.EvaluateException(exc, out httpStatusCode, out restStatus) && AzureTableUtils.IsContentionError(httpStatusCode))
             {
                 // log at Verbose, since failure on conditional is not not an error. Will analyze and warn later, if required.
-                if(Logger.IsEnabled(LogLevel.Debug)) Logger.Debug((int)Utilities.ErrorCode.AzureTable_13,
-                    $"Intermediate Azure table write error {operation} to table {TableName} data1 {(data1 ?? "null")} data2 {(data2 ?? "null")}", exc);
+                if (Logger.IsEnabled(LogLevel.Debug)) Logger.Debug((int)Utilities.ErrorCode.AzureTable_13,
+                     $"Intermediate Azure table write error {operation} to table {TableName} data1 {(data1 ?? "null")} data2 {(data2 ?? "null")}", exc);
 
             }
             else

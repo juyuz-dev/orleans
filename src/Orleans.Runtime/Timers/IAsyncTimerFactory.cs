@@ -1,8 +1,8 @@
-﻿using System;
+using System;
 
 namespace Orleans.Runtime
 {
-    internal interface IAsyncTimerFactory
+    public interface IAsyncTimerFactory
     {
         IAsyncTimer Create(TimeSpan period, string name);
     }

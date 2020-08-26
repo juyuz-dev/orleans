@@ -28,6 +28,8 @@ namespace Orleans.Configuration
         /// Gets or sets a unique identifier for this service, which should survive deployment and redeployment, where as <see cref="ClusterId"/> might not.
         /// </summary>
         public string ServiceId { get; set; }
+
+        public string Region { get; set; }
     }
 
     /// <summary>

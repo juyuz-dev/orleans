@@ -76,7 +76,7 @@ namespace Orleans.Storage
             if(logger.IsEnabled(LogLevel.Trace)) logger.Trace((int)AzureProviderErrorCode.AzureTableProvider_ReadingData, "Reading: GrainType={0} Pk={1} Grainid={2} from Table={3}", grainType, pk, grainReference, this.options.TableName);
             string partitionKey = pk;
             string rowKey = grainType;
-            GrainStateRecord record = await tableDataManager.Read(partitionKey, rowKey).ConfigureAwait(false);
+            GrainStateRecord record = await tableDataManager.Read(partitionKey, rowKey);
             if (record != null)
             {
                 var entity = record.Entity;
@@ -106,7 +106,7 @@ namespace Orleans.Storage
             var record = new GrainStateRecord { Entity = entity, ETag = grainState.ETag };
             try
             {
-                await DoOptimisticUpdate(() => tableDataManager.Write(record), grainType, grainReference, this.options.TableName, grainState.ETag).ConfigureAwait(false);
+                await DoOptimisticUpdate(() => tableDataManager.Write(record), grainType, grainReference, this.options.TableName, grainState.ETag);
                 grainState.ETag = record.ETag;
             }
             catch (Exception exc)
@@ -138,11 +138,11 @@ namespace Orleans.Storage
                 if (this.options.DeleteStateOnClear)
                 {
                     operation = "Deleting";
-                    await DoOptimisticUpdate(() => tableDataManager.Delete(record), grainType, grainReference, this.options.TableName, grainState.ETag).ConfigureAwait(false);
+                    await DoOptimisticUpdate(() => tableDataManager.Delete(record), grainType, grainReference, this.options.TableName, grainState.ETag);
                 }
                 else
                 {
-                    await DoOptimisticUpdate(() => tableDataManager.Write(record), grainType, grainReference, this.options.TableName, grainState.ETag).ConfigureAwait(false);
+                    await DoOptimisticUpdate(() => tableDataManager.Write(record), grainType, grainReference, this.options.TableName, grainState.ETag);
                 }
 
                 grainState.ETag = record.ETag; // Update in-memory data to the new ETag
@@ -159,7 +159,7 @@ namespace Orleans.Storage
         {
             try
             {
-                await updateOperation.Invoke().ConfigureAwait(false);
+                await updateOperation.Invoke();
             }
             catch (StorageException ex) when (ex.IsPreconditionFailed() || ex.IsConflict() || ex.IsNotFound())
             {
@@ -417,7 +417,7 @@ namespace Orleans.Storage
                 if (logger.IsEnabled(LogLevel.Trace)) logger.Trace((int)AzureProviderErrorCode.AzureTableProvider_Storage_Reading, "Reading: PartitionKey={0} RowKey={1} from Table={2}", partitionKey, rowKey, TableName);
                 try
                 {
-                    Tuple<DynamicTableEntity, string> data = await tableManager.ReadSingleTableEntryAsync(partitionKey, rowKey).ConfigureAwait(false);
+                    Tuple<DynamicTableEntity, string> data = await tableManager.ReadSingleTableEntryAsync(partitionKey, rowKey);
                     if (data == null || data.Item1 == null)
                     {
                         if (logger.IsEnabled(LogLevel.Trace)) logger.Trace((int)AzureProviderErrorCode.AzureTableProvider_DataNotFound, "DataNotFound reading: PartitionKey={0} RowKey={1} from Table={2}", partitionKey, rowKey, TableName);
@@ -444,8 +444,8 @@ namespace Orleans.Storage
                 var entity = record.Entity;
                 if (logger.IsEnabled(LogLevel.Trace)) logger.Trace((int)AzureProviderErrorCode.AzureTableProvider_Storage_Writing, "Writing: PartitionKey={0} RowKey={1} to Table={2} with ETag={3}", entity.PartitionKey, entity.RowKey, TableName, record.ETag);
                 string eTag = String.IsNullOrEmpty(record.ETag) ?
-                    await tableManager.CreateTableEntryAsync(entity).ConfigureAwait(false) :
-                    await tableManager.UpdateTableEntryAsync(entity, record.ETag).ConfigureAwait(false);
+                    await tableManager.CreateTableEntryAsync(entity) :
+                    await tableManager.UpdateTableEntryAsync(entity, record.ETag);
                 record.ETag = eTag;
             }
 
@@ -460,7 +460,7 @@ namespace Orleans.Storage
                 }
 
                 if (logger.IsEnabled(LogLevel.Trace)) logger.Trace((int)AzureProviderErrorCode.AzureTableProvider_Storage_Writing, "Deleting: PartitionKey={0} RowKey={1} from Table={2} with ETag={3}", entity.PartitionKey, entity.RowKey, TableName, record.ETag);
-                await tableManager.DeleteTableEntryAsync(entity, record.ETag).ConfigureAwait(false);
+                await tableManager.DeleteTableEntryAsync(entity, record.ETag);
                 record.ETag = null;
             }
         }
