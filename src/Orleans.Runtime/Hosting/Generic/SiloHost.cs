@@ -7,13 +7,13 @@ using Orleans.Runtime;
 
 namespace Orleans.Hosting
 {
-    internal class SiloWrapper : ISiloHost
+    internal class SiloHost : ISiloHost
     {
         private readonly Silo silo;
         private readonly SiloApplicationLifetime applicationLifetime;
         private bool isDisposing;
 
-        public SiloWrapper(Silo silo, IServiceProvider services)
+        public SiloHost(Silo silo, IServiceProvider services)
         {
             this.Services = services;
             this.silo = silo;
@@ -42,7 +42,7 @@ namespace Orleans.Hosting
             try
             {
                 this.applicationLifetime?.StopApplication();
-                await silo.StopAsync(cancellationToken);
+                await silo.StopAsync(cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -51,12 +51,21 @@ namespace Orleans.Hosting
         }
 
         /// <inheritdoc />
-        public void Dispose()
+        public void Dispose() => this.DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+        public async ValueTask DisposeAsync()
         {
             if (!isDisposing)
             {
                 this.isDisposing = true;
-                (this.Services as IDisposable)?.Dispose();
+                if (this.Services is IAsyncDisposable asyncDisposable)
+                {
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                }
+                else if (this.Services is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
         }
     }

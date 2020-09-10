@@ -99,7 +99,7 @@ namespace Orleans.Runtime
         private readonly CachedVersionSelectorManager versionSelectorManager;
         private readonly ILoggerFactory loggerFactory;
         private readonly IOptions<GrainCollectionOptions> collectionOptions;
-        private readonly IOptions<SiloMessagingOptions> messagingOptions;
+        private readonly IOptionsMonitor<SiloMessagingOptions> messagingOptions;
         private readonly RuntimeMessagingTrace messagingTrace;
 
         public Catalog(
@@ -122,9 +122,10 @@ namespace Orleans.Runtime
             ILoggerFactory loggerFactory,
             IOptions<SchedulingOptions> schedulingOptions,
             IOptions<GrainCollectionOptions> collectionOptions,
-            IOptions<SiloMessagingOptions> messagingOptions,
+            IOptionsMonitor<SiloMessagingOptions> messagingOptions,
             RuntimeMessagingTrace messagingTrace,
-            IAsyncTimerFactory timerFactory)
+            IAsyncTimerFactory timerFactory,
+            IncomingRequestMonitor incomingRequestMonitor)
             : base(Constants.CatalogId, messageCenter.MyAddress, loggerFactory)
         {
             this.LocalSilo = localSiloDetails.SiloAddress;
@@ -160,7 +161,9 @@ namespace Orleans.Runtime
                 versionSelectorManager.CompatibilityDirectorManager,
                 loggerFactory,
                 schedulingOptions,
-                messagingTrace);
+                messagingTrace,
+                timerFactory,
+                incomingRequestMonitor);
             GC.GetTotalMemory(true); // need to call once w/true to ensure false returns OK value
 
 // TODO: figure out how to read config change notification from options. - jbragg
@@ -183,8 +186,8 @@ namespace Orleans.Runtime
                 }
                 return counter;
             });
-            maxWarningRequestProcessingTime = this.messagingOptions.Value.ResponseTimeout.Multiply(5);
-            maxRequestProcessingTime = this.messagingOptions.Value.MaxRequestProcessingTime;
+            maxWarningRequestProcessingTime = this.messagingOptions.CurrentValue.ResponseTimeout.Multiply(5);
+            maxRequestProcessingTime = this.messagingOptions.CurrentValue.MaxRequestProcessingTime;
             grainDirectory.SetSiloRemovedCatalogCallback(this.OnSiloStatusChange);
             this.gcTimer = timerFactory.Create(this.activationCollector.Quantum, "Catalog.GCTimer");
         }
@@ -198,7 +201,7 @@ namespace Orleans.Runtime
         {
             // For test only: if we have silos that are not yet in the Cluster TypeMap, we assume that they are compatible
             // with the current silo
-            if (this.messagingOptions.Value.AssumeHomogenousSilosForTesting)
+            if (this.messagingOptions.CurrentValue.AssumeHomogenousSilosForTesting)
                 return AllActiveSilos;
 
             var typeCode = target.GrainIdentity.TypeCode;
@@ -263,8 +266,18 @@ namespace Orleans.Runtime
             var watch = ValueStopwatch.StartNew();
             var number = Interlocked.Increment(ref collectionNumber);
             long memBefore = GC.GetTotalMemory(false) / (1024 * 1024);
-            logger.Info(ErrorCode.Catalog_BeforeCollection, "Before collection#{0}: memory={1}MB, #activations={2}, collector={3}.",
-                number, memBefore, activations.Count, this.activationCollector.ToString());
+
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                logger.LogDebug(
+                    (int)ErrorCode.Catalog_BeforeCollection,
+                    "Before collection #{CollectionNumber}: memory: {MemoryBefore}MB, #activations: {ActivationCount}, collector: {CollectorStatus}",
+                    number,
+                    memBefore,
+                    activations.Count,
+                    this.activationCollector.ToString());
+            }
+
             List<ActivationData> list = scanStale ? this.activationCollector.ScanStale() : this.activationCollector.ScanAll(ageLimit);
             collectionCounter.Increment();
             var count = 0;
@@ -274,10 +287,22 @@ namespace Orleans.Runtime
                 if (logger.IsEnabled(LogLevel.Debug)) logger.Debug("CollectActivations{0}", list.ToStrings(d => d.Grain.ToString() + d.ActivationId));
                 await DeactivateActivationsFromCollector(list);
             }
+            
             long memAfter = GC.GetTotalMemory(false) / (1024 * 1024);
             watch.Stop();
-            logger.Info(ErrorCode.Catalog_AfterCollection, "After collection#{0}: memory={1}MB, #activations={2}, collected {3} activations, collector={4}, collection time={5}.",
-                number, memAfter, activations.Count, count, this.activationCollector.ToString(), watch.Elapsed);
+
+            if (logger.IsEnabled(LogLevel.Debug))
+            {
+                logger.LogDebug(
+                    (int)ErrorCode.Catalog_AfterCollection,
+                    "After collection #{CollectionNumber} memory: {MemoryAfter}MB, #activations: {ActivationCount}, collected {CollectedCount} activations, collector: {CollectorStatus}, collection time: {CollectionTime}",
+                    number,
+                    memAfter,
+                    activations.Count,
+                    count,
+                    this.activationCollector.ToString(),
+                    watch.Elapsed);
+            }
         }
 
         public List<Tuple<GrainId, string, int>> GetGrainStatistics()
@@ -498,7 +523,7 @@ namespace Orleans.Runtime
                         placement,
                         this.activationCollector,
                         ageLimit,
-                        this.messagingOptions,
+                        this.messagingOptions.CurrentValue,
                         this.maxWarningRequestProcessingTime,
                         this.maxRequestProcessingTime,
                         this.RuntimeClient,
