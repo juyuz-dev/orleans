@@ -131,19 +131,6 @@ namespace Orleans.Messaging
             }
         }
 
-        public void MarkAsUnavailableForSend(SiloAddress gateway)
-        {
-            lock (lockable)
-            {
-                knownMasked[gateway] = DateTime.UtcNow;
-                var copy = new List<SiloAddress>(cachedLiveGateways);
-                copy.Remove(gateway);
-                // swap the reference, don't mutate cachedLiveGateways, so we can access cachedLiveGateways without the lock.
-                cachedLiveGateways = copy;
-                cachedLiveGatewaysSet = new HashSet<SiloAddress>(cachedLiveGateways);
-            }
-        }
-
         public override string ToString()
         {
             var sb = new StringBuilder();
@@ -316,19 +303,6 @@ namespace Orleans.Messaging
                             knownDead.Remove(address);
                         }
                     }
-                    if (knownMasked.TryGetValue(address, out var maskedAt))
-                    {
-                        if (now.Subtract(maskedAt) < maxStaleness)
-                        {
-                            isDead = true;
-                        }
-                        else
-                        {
-                            // Remove stale entries.
-                            knownMasked.Remove(address);
-                        }
-                    }
-
                     if (knownMasked.TryGetValue(address, out var maskedAt))
                     {
                         if (now.Subtract(maskedAt) < maxStaleness)
