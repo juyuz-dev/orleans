@@ -356,6 +356,38 @@ namespace Orleans
             {
                 return;
             }
+            else if (response.Result == Message.ResponseTypes.Status)
+            {
+                var status = (StatusResponse)response.BodyObject;
+                callbacks.TryGetValue(response.Id, out var callback);
+                var request = callback?.Message;
+                if (!(request is null))
+                {
+                    callback.OnStatusUpdate(status);
+
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (request.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for pending request, Request: {RequestMessage}. Status: {Diagnostics}", request, diagnosticsString);
+                        }
+                    }
+                }
+                else
+                {
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (response.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for unknown request. Message: {StatusMessage}. Status: {Diagnostics}", response, diagnosticsString);
+                        }
+                    }
+                }
+
+                return;
+            }
             
             CallbackData callbackData;
             var found = callbacks.TryRemove(response.Id, out callbackData);
@@ -506,17 +538,10 @@ namespace Orleans
             });
             
             Utils.SafeExecute(() => MessageCenter?.Dispose());
-            if (ClientStatistics != null)
-            {
-                Utils.SafeExecute(() => ClientStatistics.Dispose());
-            }
 
-            Utils.SafeExecute(() => (this.ServiceProvider as IDisposable)?.Dispose());
+            this.ClusterConnectionLost = null;
+            this.GatewayCountChanged = null;
 
-            Utils.SafeExecute(() => this.ClusterConnectionLost = null);
-            Utils.SafeExecute(() => this.GatewayCountChanged = null);
-
-            this.ServiceProvider = null;
             GC.SuppressFinalize(this);
         }
 
