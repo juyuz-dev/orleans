@@ -469,12 +469,12 @@ namespace Orleans.Runtime.Scheduler
             {
                 var sb = new StringBuilder();
                 sb.Append(this);
-                sb.AppendFormat(". Currently QueuedWorkItems={0}; Total EnQueued={1}; Total processed={2}; Quantum expirations={3}; ",
+                sb.AppendFormat(". Currently QueuedWorkItems={0}; Total Enqueued={1}; Total processed={2}; Quantum expirations={3}; ",
                     WorkItemCount, totalItemsEnQueued, totalItemsProcessed, quantumExpirations);
-                if (CurrentTask != null)
+                if (CurrentTask is Task task)
                 {
                     sb.AppendFormat(" Executing Task Id={0} Status={1} for {2}.",
-                        CurrentTask.Id, CurrentTask.Status, Utils.Since(currentTaskStarted));
+                        task.Id, task.Status, Utils.Since(currentTaskStarted));
                 }
 
                 if (AverageQueueLength > 0)

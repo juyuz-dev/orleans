@@ -21,6 +21,7 @@ namespace Orleans.Runtime
     {
         internal MessageCenter Transport { get; }
 
+        private readonly IncomingRequestMonitor _activationWorkloadMonitor;
         private readonly OrleansTaskScheduler scheduler;
         private readonly Catalog catalog;
         private readonly ILogger logger;
@@ -39,7 +40,7 @@ namespace Orleans.Runtime
             OrleansTaskScheduler scheduler,
             MessageCenter transport, 
             Catalog catalog,
-            IOptions<SiloMessagingOptions> messagingOptions,
+            IOptionsMonitor<SiloMessagingOptions> messagingOptions,
             PlacementDirectorsManager placementDirectorsManager,
             ILocalGrainDirectory localGrainDirectory,
             IGrainLocator grainLocator,
@@ -48,12 +49,15 @@ namespace Orleans.Runtime
             CompatibilityDirectorManager compatibilityDirectorManager,
             ILoggerFactory loggerFactory,
             IOptions<SchedulingOptions> schedulerOptions,
-            RuntimeMessagingTrace messagingTrace)
+            RuntimeMessagingTrace messagingTrace,
+            IAsyncTimerFactory asyncTimerFactory,
+            IncomingRequestMonitor incomingRequestMonitor)
         {
+            _activationWorkloadMonitor = incomingRequestMonitor;
             this.scheduler = scheduler;
             this.catalog = catalog;
             Transport = transport;
-            this.messagingOptions = messagingOptions.Value;
+            this.messagingOptions = messagingOptions.CurrentValue;
             this.invokeWorkItemLogger = loggerFactory.CreateLogger<InvokeWorkItem>();
             this.placementDirectorsManager = placementDirectorsManager;
             this.localGrainDirectory = localGrainDirectory;
@@ -120,6 +124,7 @@ namespace Orleans.Runtime
                     {
                         this.activationCollector.TryRescheduleCollection(target);
                     }
+
                     // Silo is always capable to accept a new request. It's up to the activation to handle its internal state.
                     // If activation is shutting down, it will queue and later forward this request.
                     ReceiveRequest(message, target);
@@ -265,6 +270,12 @@ namespace Orleans.Runtime
         {
             lock (targetActivation)
             {
+                // If the grain was previously inactive, schedule it for workload analysis
+                if (targetActivation.IsInactive)
+                {
+                    _activationWorkloadMonitor.MarkRecentlyUsed(targetActivation);
+                }
+
                 if (!ActivationMayAcceptRequest(targetActivation, message))
                 {
                     // Check for deadlock before Enqueueing.
@@ -459,8 +470,7 @@ namespace Orleans.Runtime
                     break;
                 case ActivationData.EnqueueMessageResult.ErrorStuckActivation:
                     // Avoid any new call to this activation
-                    catalog.DeactivateStuckActivation(targetActivation);
-                    ProcessRequestToInvalidActivation(message, targetActivation.Address, targetActivation.ForwardingAddress, "EnqueueRequest - blocked grain");
+                    ProcessRequestToStuckActivation(message, targetActivation, "EnqueueRequest - blocked grain");
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -502,6 +512,21 @@ namespace Orleans.Runtime
                     () => TryForwardRequest(message, oldAddress, forwardingAddress, failedOperation, exc),
                     catalog);
             }
+        }
+
+        private void ProcessRequestToStuckActivation(
+            Message message,
+            ActivationData activationData,
+            string failedOperation)
+        {
+            scheduler.RunOrQueueTask(
+                   async () => 
+                   {
+                       await catalog.DeactivateStuckActivation(activationData);
+                       TryForwardRequest(message, activationData.Address, activationData.ForwardingAddress, failedOperation);
+                   },
+                   catalog)
+                .Ignore();
         }
 
         internal void ProcessRequestsToInvalidActivation(
@@ -722,6 +747,7 @@ namespace Orleans.Runtime
         private Task AddressMessage(Message message)
         {
             var targetAddress = message.TargetAddress;
+            if (targetAddress is null) throw new InvalidOperationException("Cannot address a message with a null TargetAddress");
             if (targetAddress.IsComplete) return Task.CompletedTask;
 
             // placement strategy is determined by searching for a specification. first, we check for a strategy associated with the grain reference,

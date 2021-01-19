@@ -58,7 +58,7 @@ namespace Orleans.Hosting
 
             // Register system services.
             services.TryAddSingleton<ILocalSiloDetails, LocalSiloDetails>();
-            services.TryAddSingleton<ISiloHost, SiloWrapper>();
+            services.TryAddSingleton<ISiloHost, SiloHost>();
             services.TryAddTransient<ILifecycleSubject, LifecycleSubject>();
             services.TryAddSingleton<SiloLifecycleSubject>();
             services.TryAddFromExisting<ISiloLifecycleSubject, SiloLifecycleSubject>();
@@ -276,6 +276,8 @@ namespace Orleans.Hosting
             services.TryAddSingleton<IGrainActivator, DefaultGrainActivator>();
             services.TryAddScoped<ActivationData.GrainActivationContextFactory>();
             services.TryAddScoped<IGrainActivationContext>(sp => sp.GetRequiredService<ActivationData.GrainActivationContextFactory>().Context);
+            services.AddSingleton<IncomingRequestMonitor>();
+            services.AddFromExisting<ILifecycleParticipant<ISiloLifecycle>, IncomingRequestMonitor>();
 
             services.TryAddSingleton<IStreamSubscriptionManagerAdmin>(sp => new StreamSubscriptionManagerAdmin(sp.GetRequiredService<IStreamProviderRuntime>()));
             services.TryAddSingleton<IConsistentRingProvider>(

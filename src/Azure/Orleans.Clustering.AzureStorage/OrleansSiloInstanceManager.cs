@@ -37,10 +37,8 @@ namespace Orleans.AzureUtils
             TableName = options.TableName;
             logger = loggerFactory.CreateLogger<OrleansSiloInstanceManager>();
             storage = new AzureTableDataManager<SiloInstanceTableEntry>(
-                options.TableName,
-                options.ConnectionString,
-                loggerFactory.CreateLogger<AzureTableDataManager<SiloInstanceTableEntry>>(),
-                options.StoragePolicyOptions);
+                options,
+                loggerFactory.CreateLogger<AzureTableDataManager<SiloInstanceTableEntry>>());
             this.storagePolicyOptions = options.StoragePolicyOptions;
         }
 
@@ -198,7 +196,9 @@ namespace Orleans.AzureUtils
         public async Task CleanupDefunctSiloEntries(DateTimeOffset beforeDate)
         {
             var entriesList = (await FindAllSiloEntries())
-                .Where(entry => entry.Item1.Status == INSTANCE_STATUS_DEAD && entry.Item1.Timestamp < beforeDate)
+                .Where(entry => !string.Equals(SiloInstanceTableEntry.TABLE_VERSION_ROW, entry.Item1.RowKey)
+                    && entry.Item1.Status != INSTANCE_STATUS_ACTIVE
+                    && entry.Item1.Timestamp < beforeDate)
                 .ToList();
 
             await DeleteEntriesBatch(entriesList);

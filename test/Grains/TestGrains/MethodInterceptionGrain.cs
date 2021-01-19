@@ -53,7 +53,7 @@ namespace UnitTests.Grains
 
         public Task FilterThrows() => Task.CompletedTask;
 
-        public Task<string> IncorrectResultType() => Task.FromResult("hop scotch");
+        public Task<string> IncorrectResultType() => Task.FromResult("hop");
 
         async Task IIncomingGrainCallFilter.Invoke(IIncomingGrainCallContext context)
         {

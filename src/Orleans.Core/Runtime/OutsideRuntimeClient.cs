@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Orleans.ClientObservers;
 using Orleans.CodeGeneration;
 using Orleans.Configuration;
 using Orleans.Internal;
@@ -62,7 +63,8 @@ namespace Orleans
             get;
             private set;
         }
-        
+        public ClientGatewayObserver gatewayObserver { get; private set; }
+
         public string CurrentActivationIdentity
         {
             get { return CurrentActivationAddress.ToString(); }
@@ -205,6 +207,9 @@ namespace Orleans
             MessageCenter.RegisterLocalMessageHandler(this.HandleMessage);
             MessageCenter.Start();
             CurrentActivationAddress = ActivationAddress.NewActivationAddress(MessageCenter.MyAddress, clientId);
+
+            this.gatewayObserver = new ClientGatewayObserver(gatewayManager);
+            this.InternalGrainFactory.CreateObjectReference<IClientGatewayObserver>(this.gatewayObserver);
 
             await ExecuteWithRetries(
                 async () => this.GrainTypeResolver = await MessageCenter.GetGrainTypeResolver(this.InternalGrainFactory),
@@ -351,6 +356,38 @@ namespace Orleans
             {
                 return;
             }
+            else if (response.Result == Message.ResponseTypes.Status)
+            {
+                var status = (StatusResponse)response.BodyObject;
+                callbacks.TryGetValue(response.Id, out var callback);
+                var request = callback?.Message;
+                if (!(request is null))
+                {
+                    callback.OnStatusUpdate(status);
+
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (request.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for pending request, Request: {RequestMessage}. Status: {Diagnostics}", request, diagnosticsString);
+                        }
+                    }
+                }
+                else
+                {
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (response.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for unknown request. Message: {StatusMessage}. Status: {Diagnostics}", response, diagnosticsString);
+                        }
+                    }
+                }
+
+                return;
+            }
             
             CallbackData callbackData;
             var found = callbacks.TryRemove(response.Id, out callbackData);
@@ -456,7 +493,13 @@ namespace Orleans
             if (obj is Grain)
                 throw new ArgumentException("Argument must not be a grain class.", nameof(obj));
 
-            GrainReference gr = GrainReference.NewObserverGrainReference(clientId, GuidId.GetNewGuidId(), this.GrainReferenceRuntime);
+            GrainReference gr;
+
+            if (obj is ClientObserver clientObserver)
+                gr = GrainReference.NewObserverGrainReference(GrainId.NewClientId(Guid.Empty), clientObserver.ObserverId, this.GrainReferenceRuntime);
+            else
+                gr = GrainReference.NewObserverGrainReference(clientId, GuidId.GetNewGuidId(), this.GrainReferenceRuntime);
+
             if (!localObjects.TryRegister(obj, gr.ObserverId, invoker))
             {
                 throw new ArgumentException(String.Format("Failed to add new observer {0} to localObjects collection.", gr), "gr");
@@ -495,17 +538,10 @@ namespace Orleans
             });
             
             Utils.SafeExecute(() => MessageCenter?.Dispose());
-            if (ClientStatistics != null)
-            {
-                Utils.SafeExecute(() => ClientStatistics.Dispose());
-            }
 
-            Utils.SafeExecute(() => (this.ServiceProvider as IDisposable)?.Dispose());
+            this.ClusterConnectionLost = null;
+            this.GatewayCountChanged = null;
 
-            Utils.SafeExecute(() => this.ClusterConnectionLost = null);
-            Utils.SafeExecute(() => this.GatewayCountChanged = null);
-
-            this.ServiceProvider = null;
             GC.SuppressFinalize(this);
         }
 

@@ -60,7 +60,7 @@ namespace Orleans.SqlUtils.StorageProvider.GrainClasses
             State.NickName = "NickName_" + customerId;
             State.BirthDate = new DateTime(_random.Next(40) + 1970, _random.Next(12) + 1,  _random.Next(28) + 1, 0, 0, 0, DateTimeKind.Utc);
             State.Gender = _random.Next(2);
-            State.Country = "Country_" + _random.Next();
+            State.CountryRegion = "CountryRegion_" + _random.Next();
             State.AvatarUrl = "AvatarUrl_" + _random.Next();
             State.KudoPoints = _random.Next();
             State.Status = _random.Next();

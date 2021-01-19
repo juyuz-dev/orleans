@@ -1,18 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Net;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 using Orleans;
 using Orleans.GrainDirectory;
 using Orleans.Runtime;
 using Orleans.Runtime.GrainDirectory;
-using Orleans.Runtime.Utilities;
 using TestExtensions;
 using Xunit;
 using Xunit.Abstractions;
@@ -43,11 +38,14 @@ namespace UnitTests.Directory
             this.grainDirectoryResolver.Directories.Returns(new[] { this.grainDirectory });
             this.localGrainDirectory = Substitute.For<ILocalGrainDirectory>();
             this.mockMembershipService = new MockClusterMembershipService();
-
+            
             this.grainLocator = new CachedGrainLocator(
                 this.grainDirectoryResolver, 
                 new DhtGrainLocator(this.localGrainDirectory),
-                this.mockMembershipService.Target);
+                this.mockMembershipService.Target,
+                null,
+                Substitute.For<IServiceProvider>(),
+                Substitute.For<Microsoft.Extensions.Configuration.IConfiguration>());
 
             this.grainLocator.Participate(this.lifecycle);
         }

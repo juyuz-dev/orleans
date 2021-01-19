@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Orleans.ClientObservers;
+using Orleans.CodeGeneration;
 using Orleans.Configuration;
 using Orleans.Hosting;
 
@@ -21,11 +23,13 @@ namespace Orleans.Runtime.Messaging
         private readonly SiloConnectionOptions siloConnectionOptions;
         private readonly OverloadDetector overloadDetector;
         private readonly Gateway gateway;
+        private readonly TimeSpan shutdownNotificationDelay;
 
         public GatewayConnectionListener(
             IServiceProvider serviceProvider,
             IOptions<ConnectionOptions> connectionOptions,
             IOptions<SiloConnectionOptions> siloConnectionOptions,
+            IOptions<SiloMessagingOptions> siloMessagingOptions,
             OverloadDetector overloadDetector,
             ILocalSiloDetails localSiloDetails,
             IOptions<EndpointOptions> endpointOptions,
@@ -36,6 +40,7 @@ namespace Orleans.Runtime.Messaging
             : base(serviceProvider.GetRequiredServiceByKey<object, IConnectionListenerFactory>(ServicesKey), connectionOptions, connectionManager, connectionShared)
         {
             this.siloConnectionOptions = siloConnectionOptions.Value;
+            this.shutdownNotificationDelay = siloMessagingOptions.Value.ClientGatewayShutdownNotificationTimeout;
             this.overloadDetector = overloadDetector;
             this.gateway = messageCenter.Gateway;
             this.localSiloDetails = localSiloDetails;
@@ -94,22 +99,21 @@ namespace Orleans.Runtime.Messaging
 
         private async Task OnActiveStop(CancellationToken cancellationToken)
         {
-            await Task.Run(() => this.SendDisconnectionRequest());
-        }
+            // Start accepting connections
+            await Task.Run(() => SendDisconnectionRequest());
 
-        private async Task SendDisconnectionRequest()
-        {
-            var msg = new Message
+            async Task SendDisconnectionRequest()
             {
-                SendingSilo = this.localSiloDetails.GatewayAddress,
-                CloseRequested = true
-            };
-            foreach (var conn in this.connections)
-            {
-                this.logger.LogInformation("Notify {RemoteEndPoint} that we are shutting down", conn.Key.RemoteEndPoint);
-                conn.Key.Send(msg);
+                var msg = ClientGatewayObserver.CreateMessage(this.localSiloDetails.GatewayAddress);
+
+                foreach (var conn in this.connections)
+                {
+                    this.logger.LogInformation("Notify {RemoteEndPoint} that we are shutting down", conn.Key.RemoteEndPoint);
+                    conn.Key.Send(msg);
+                }
+
+                await Task.Delay(this.shutdownNotificationDelay);
             }
-            await Task.Delay(TimeSpan.FromSeconds(5));
         }
     }
 }

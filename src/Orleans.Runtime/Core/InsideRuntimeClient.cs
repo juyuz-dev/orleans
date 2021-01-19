@@ -365,7 +365,7 @@ namespace Orleans.Runtime
                     {
                         transactionInfo.ReconcilePending();
                         
-                        // Record reason for abort, if not alread set
+                        // Record reason for abort, if not already set.
                         transactionInfo.RecordException(exc1, serializationManager);
 
                         if (startNewTransaction)
@@ -414,12 +414,12 @@ namespace Orleans.Runtime
                         {
                             try
                             {
-                                if (transactionException == null)
+                                if (transactionException is null)
                                 {
-                                    var status = await this.transactionAgent.Resolve(transactionInfo);
+                                    var (status, exception) = await this.transactionAgent.Resolve(transactionInfo);
                                     if (status != TransactionalStatus.Ok)
                                     {
-                                        transactionException = status.ConvertToUserException(transactionInfo.Id);
+                                        transactionException = status.ConvertToUserException(transactionInfo.Id, exception);
                                     }
                                 }
                                 else
@@ -625,6 +625,37 @@ namespace Orleans.Runtime
                             "Missing enum in switch: " + message.RejectionType);
                         break;
                 }
+            }
+            else if (message.Result == Message.ResponseTypes.Status)
+            {
+                var status = (StatusResponse)message.BodyObject;
+                callbacks.TryGetValue(message.Id, out var callback);
+                var request = callback?.Message;
+                if (!(request is null))
+                {
+                    callback.OnStatusUpdate(status);
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (request.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for pending request, Request: {RequestMessage}. Status: {Diagnostics}", request, diagnosticsString);
+                        }
+                    }
+                }
+                else
+                {
+                    if (status.Diagnostics != null && status.Diagnostics.Count > 0 && logger.IsEnabled(LogLevel.Information))
+                    {
+                        var diagnosticsString = string.Join("\n", status.Diagnostics);
+                        using (message.SetThreadActivityId())
+                        {
+                            this.logger.LogInformation("Received status update for unknown request. Message: {StatusMessage}. Status: {Diagnostics}", message, diagnosticsString);
+                        }
+                    }
+                }
+
+                return;
             }
 
             CallbackData callbackData;

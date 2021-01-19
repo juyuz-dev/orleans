@@ -65,7 +65,8 @@ namespace Orleans.Runtime
         {
             Success,
             Error,
-            Rejection
+            Rejection,
+            Status
         }
 
         public enum RejectionTypes
@@ -174,7 +175,17 @@ namespace Orleans.Runtime
 
         public ActivationAddress TargetAddress
         {
-            get { return targetAddress ?? (targetAddress = ActivationAddress.GetAddress(TargetSilo, TargetGrain, TargetActivation)); }
+            get
+            {
+                if (targetAddress is object) return targetAddress;
+                if (!(TargetGrain is null))
+                {
+                    return targetAddress = ActivationAddress.GetAddress(TargetSilo, TargetGrain, TargetActivation);
+                }
+
+                return null;
+            }
+
             set
             {
                 TargetGrain = value.Grain;
@@ -443,6 +454,10 @@ namespace Orleans.Runtime
 
                     case ResponseTypes.Rejection:
                         response = string.Format("{0} Rejection (info: {1}) ", RejectionType, RejectionInfo);
+                        break;
+
+                    case ResponseTypes.Status:
+                        response = "Status ";
                         break;
 
                     default:
