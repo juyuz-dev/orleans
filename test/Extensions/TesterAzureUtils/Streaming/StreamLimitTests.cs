@@ -12,6 +12,7 @@ using Orleans.Runtime;
 using Orleans.Streams;
 using Orleans.TestingHost;
 using Tester;
+using Tester.AzureUtils;
 using Tester.AzureUtils.Streaming;
 using TestExtensions;
 using UnitTests.GrainInterfaces;
@@ -54,24 +55,24 @@ namespace UnitTests.StreamingTests
                     .AddSimpleMessageStreamProvider("SMSProviderDoNotOptimizeForImmutableData", options => options.OptimizeForImmutableData = false)
                     .AddAzureTableGrainStorage("AzureStore", builder => builder.Configure<IOptions<ClusterOptions>>((options, silo) =>
                     {
-                        options.ConnectionString = TestDefaultConfiguration.DataConnectionString;
+                        options.ConfigureTestDefaults();
                         options.DeleteStateOnClear = true;
                     }))
                     .AddAzureTableGrainStorage("PubSubStore", builder => builder.Configure<IOptions<ClusterOptions>>((options, silo) =>
                     {
                         options.DeleteStateOnClear = true;
-                        options.ConnectionString = TestDefaultConfiguration.DataConnectionString;
+                        options.ConfigureTestDefaults();
                     }))
                     .AddAzureQueueStreams(AzureQueueStreamProviderName, ob => ob.Configure<IOptions<ClusterOptions>>(
                         (options, dep) =>
                         {
-                            options.ConnectionString = TestDefaultConfiguration.DataConnectionString;
+                            options.ConfigureTestDefaults();
                             options.QueueNames = AzureQueueUtilities.GenerateQueueNames(dep.Value.ClusterId, queueCount);
                         }))
                     .AddAzureQueueStreams("AzureQueueProvider2", ob=>ob.Configure<IOptions<ClusterOptions>>(
                         (options, dep) =>
                         {
-                            options.ConnectionString = TestDefaultConfiguration.DataConnectionString;
+                            options.ConfigureTestDefaults();
                             options.QueueNames = AzureQueueUtilities.GenerateQueueNames($"{dep.Value.ClusterId}2", queueCount);
                         }))
                     .AddMemoryGrainStorage("MemoryStore", options => options.NumStorageGrains = 1);
@@ -82,22 +83,26 @@ namespace UnitTests.StreamingTests
         {
             this.output = output;
             StreamNamespace = StreamTestsConstants.StreamLifecycleTestsNamespace;
+        }
+
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
             this.mgmtGrain = this.GrainFactory.GetGrain<IManagementGrain>(0);
         }
 
-        public override void Dispose()
+        public override async Task DisposeAsync()
         {
-            if (this.HostedCluster != null)
+            await base.DisposeAsync();
+            if (!string.IsNullOrWhiteSpace(TestDefaultConfiguration.DataConnectionString))
             {
-                AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance,
+                await AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance,
                     AzureQueueUtilities.GenerateQueueNames(this.HostedCluster.Options.ClusterId, queueCount),
-                    TestDefaultConfiguration.DataConnectionString).Wait();
-                AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance,
+                    new AzureQueueOptions().ConfigureTestDefaults());
+                await AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance,
                     AzureQueueUtilities.GenerateQueueNames($"{this.HostedCluster.Options.ClusterId}2", queueCount),
-                    TestDefaultConfiguration.DataConnectionString).Wait();
+                    new AzureQueueOptions().ConfigureTestDefaults());
             }
-
-            base.Dispose();
         }
         [SkippableFact]
         public async Task SMS_Limits_FindMax_Consumers()

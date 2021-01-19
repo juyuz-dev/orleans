@@ -55,7 +55,7 @@ namespace Tester.AzureUtils
             manager = OrleansSiloInstanceManager.GetManager(
                 this.clusterId,
                 fixture.LoggerFactory,
-                new AzureStorageClusteringOptions { ConnectionString = TestDefaultConfiguration.DataConnectionString, TableName = new AzureStorageClusteringOptions().TableName })
+                new AzureStorageClusteringOptions { TableName = new AzureStorageClusteringOptions().TableName }.ConfigureTestDefaults())
                 .WaitForResultWithThrow(SiloInstanceTableTestConstants.Timeout);
         }
 
@@ -112,7 +112,8 @@ namespace Tester.AzureUtils
             {
                 this.generation = i;
                 this.siloAddress = SiloAddressUtils.NewLocalSiloAddress(generation);
-                RegisterSiloInstance();
+                var instance = RegisterSiloInstance();
+                await manager.ActivateSiloInstance(instance);
             }
 
             await Task.Delay(TimeSpan.FromSeconds(3));
@@ -236,7 +237,7 @@ namespace Tester.AzureUtils
             Assert.Equal(SiloInstanceTableEntry.ConstructRowKey(siloAddress), SiloInstanceTableEntry.ConstructRowKey(fromRowKey));
         }
 
-        private void RegisterSiloInstance()
+        private SiloInstanceTableEntry RegisterSiloInstance()
         {
             string partitionKey = this.clusterId;
             string rowKey = SiloInstanceTableEntry.ConstructRowKey(siloAddress);
@@ -266,6 +267,7 @@ namespace Tester.AzureUtils
             output.WriteLine("MyEntry={0}", myEntry);
 
             manager.RegisterSiloInstance(myEntry);
+            return myEntry;
         }
 
         private async Task<Tuple<SiloInstanceTableEntry, string>> FindSiloEntry(SiloAddress siloAddr)

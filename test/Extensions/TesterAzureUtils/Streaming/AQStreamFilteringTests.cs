@@ -15,7 +15,7 @@ using Xunit;
 namespace Tester.AzureUtils.Streaming
 {
     [TestCategory("Streaming"), TestCategory("Filters"), TestCategory("Azure")]
-    public class StreamFilteringTests_AQ : StreamFilteringTestsBase, IClassFixture<StreamFilteringTests_AQ.Fixture>, IDisposable
+    public class StreamFilteringTests_AQ : StreamFilteringTestsBase, IClassFixture<StreamFilteringTests_AQ.Fixture>, IAsyncLifetime
     {
         private const int queueCount = 8;
         private readonly Fixture fixture;
@@ -35,7 +35,7 @@ namespace Tester.AzureUtils.Streaming
                         .AddAzureQueueStreams(StreamProvider, ob=>ob.Configure<IOptions<ClusterOptions>>(
                             (options, dep) =>
                             {
-                                options.ConnectionString = TestDefaultConfiguration.DataConnectionString;
+                                options.ConfigureTestDefaults();
                                 options.QueueNames = AzureQueueUtilities.GenerateQueueNames(dep.Value.ClusterId, queueCount);
                             }))
                         .AddMemoryGrainStorage("MemoryStore")
@@ -43,14 +43,13 @@ namespace Tester.AzureUtils.Streaming
                 }
             }
 
-            public override void Dispose()
+            public override async Task DisposeAsync()
             {
-                base.Dispose();
-                if (this.HostedCluster != null)
+                await base.DisposeAsync();
+                if (!string.IsNullOrWhiteSpace(TestDefaultConfiguration.DataConnectionString))
                 {
-                    AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance, AzureQueueUtilities.GenerateQueueNames(this.HostedCluster.Options.ClusterId, queueCount),
-                        TestDefaultConfiguration.DataConnectionString)
-                        .Wait();
+                    await AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(NullLoggerFactory.Instance, AzureQueueUtilities.GenerateQueueNames(this.HostedCluster.Options.ClusterId, queueCount),
+                        new AzureQueueOptions().ConfigureTestDefaults());
                 }
             }
         }
@@ -62,11 +61,15 @@ namespace Tester.AzureUtils.Streaming
             streamProviderName = Fixture.StreamProvider;
         }
 
-        public virtual void Dispose()
+        public virtual async Task DisposeAsync()
         {
-                AzureQueueStreamProviderUtils.ClearAllUsedAzureQueues(NullLoggerFactory.Instance,
-                    AzureQueueUtilities.GenerateQueueNames(this.fixture.HostedCluster.Options.ClusterId, queueCount),
-                    TestDefaultConfiguration.DataConnectionString).Wait();
+            if (!string.IsNullOrWhiteSpace(TestDefaultConfiguration.DataConnectionString))
+            {
+                await AzureQueueStreamProviderUtils.ClearAllUsedAzureQueues(
+                  NullLoggerFactory.Instance,
+                  AzureQueueUtilities.GenerateQueueNames(this.fixture.HostedCluster.Options.ClusterId, queueCount),
+                  new AzureQueueOptions().ConfigureTestDefaults());
+            }
         }
 
         [SkippableFact, TestCategory("Functional")]
@@ -99,5 +102,7 @@ namespace Tester.AzureUtils.Streaming
         {
             await Test_Filter_TwoObsv_Same();
         }
+
+        public Task InitializeAsync() => Task.CompletedTask;
     }
 }

@@ -14,6 +14,7 @@
     <PackageReference Include="Xunit.SkippableFact" Version="$(XunitSkippableFactVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftTestSdkVersion)" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="$(SystemDiagnosticsEventLogVersion)" />
+    <PackageReference Include="Azure.Identity" Version="$(AzureIdentityVersion)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,7 +23,8 @@
     <ProjectReference Include="$(SourceRoot)test\TestInfrastructure\TestExtensions\TestExtensions.csproj" />
     <ProjectReference Include="$(SourceRoot)test\Grains\TestVersionGrains\TestVersionGrains.csproj" />
     <ProjectReference Include="$(SourceRoot)test\Grains\TestFSharp\TestFSharp.fsproj" />
-    <ProjectReference Include="..\..\src\Azure\Orleans.GrainDirectory.AzureStorage\Orleans.GrainDirectory.AzureStorage.csproj" />
+    <ProjectReference Include="$(SourceRoot)src\Azure\Orleans.GrainDirectory.AzureStorage\Orleans.GrainDirectory.AzureStorage.csproj" />
+    <ProjectReference Include="$(SourceRoot)src\Orleans.GrainDirectory.Redis\Orleans.GrainDirectory.Redis.csproj" />
   </ItemGroup>
 
   <ItemGroup Condition="!$(TargetFramework.StartsWith('netcore'))">

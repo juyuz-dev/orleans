@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Azure.Storage.Queue;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -24,7 +23,7 @@ namespace Tester.AzureUtils.Streaming
 {
     [Collection(TestEnvironmentFixture.DefaultCollection)]
     [TestCategory("Azure"), TestCategory("Streaming")]
-    public class AzureQueueAdapterTests : AzureStorageBasicTests, IDisposable
+    public class AzureQueueAdapterTests : AzureStorageBasicTests, IAsyncLifetime
     {
         private readonly ITestOutputHelper output;
         private readonly TestEnvironmentFixture fixture;
@@ -43,11 +42,13 @@ namespace Tester.AzureUtils.Streaming
             BufferPool.InitGlobalBufferPool(new SiloMessagingOptions());
         }
 
-        public void Dispose()
+        public Task InitializeAsync() => Task.CompletedTask;
+
+        public async Task DisposeAsync()
         {
             if (!string.IsNullOrWhiteSpace(TestDefaultConfiguration.DataConnectionString))
             {
-                AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(this.loggerFactory, azureQueueNames, TestDefaultConfiguration.DataConnectionString).Wait();
+                await AzureQueueStreamProviderUtils.DeleteAllUsedAzureQueues(this.loggerFactory, azureQueueNames, new AzureQueueOptions().ConfigureTestDefaults());
             }
         }
 
@@ -56,10 +57,10 @@ namespace Tester.AzureUtils.Streaming
         {
             var options = new AzureQueueOptions
             {
-                ConnectionString = TestDefaultConfiguration.DataConnectionString,
                 MessageVisibilityTimeout = TimeSpan.FromSeconds(30),
                 QueueNames = azureQueueNames
             };
+            options.ConfigureTestDefaults();
             var serializationManager = this.fixture.Services.GetService<SerializationManager>();
             var clusterOptions = this.fixture.Services.GetRequiredService<IOptions<ClusterOptions>>();
             var queueCacheOptions = new SimpleQueueCacheOptions();
@@ -107,7 +108,7 @@ namespace Tester.AzureUtils.Streaming
                 {
                     while (receivedBatches < NumBatches)
                     {
-                        var messages = receiver.GetQueueMessagesAsync(CloudQueueMessage.MaxNumberOfMessagesToPeek).Result.ToArray();
+                        var messages = receiver.GetQueueMessagesAsync(QueueAdapterConstants.UNLIMITED_GET_QUEUE_MSG).Result.ToArray();
                         if (!messages.Any())
                         {
                             continue;
