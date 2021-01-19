@@ -8,11 +8,8 @@ using Orleans;
 using Orleans.GrainDirectory;
 using Orleans.Runtime;
 using Orleans.Runtime.GrainDirectory;
-<<<<<<< HEAD
-=======
 using Orleans.Runtime.Scheduler;
 using Orleans.Runtime.Utilities;
->>>>>>> 7c68e957be63144ebb501858bc23b56ed898db85
 using TestExtensions;
 using UnitTests.SchedulerTests;
 using UnitTests.TesterInternal;
