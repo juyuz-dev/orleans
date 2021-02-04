@@ -1,4 +1,4 @@
-﻿using Orleans.Streams;
+using Orleans.Streams;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -7,6 +7,7 @@ using Orleans;
 using Orleans.Runtime;
 using Orleans.Streams.Core;
 using Orleans.Streams.PubSub;
+using System.IO;
 
 namespace UnitTests.Grains.ProgrammaticSubscribe
 {
@@ -19,8 +20,7 @@ namespace UnitTests.Grains.ProgrammaticSubscribe
     {
         public Task<bool> CanGetSubscriptionManager(string providerName)
         {
-            IStreamSubscriptionManager manager;
-            return Task.FromResult(this.ServiceProvider.GetServiceByName<IStreamProvider>(providerName).TryGetStreamSubscrptionManager(out manager));
+            return Task.FromResult(this.ServiceProvider.GetServiceByName<IStreamProvider>(providerName).TryGetStreamSubscrptionManager(out _));
         }
     }
 
@@ -44,5 +44,7 @@ namespace UnitTests.Grains.ProgrammaticSubscribe
         /// Stream namespace.
         /// </summary>
         public string Namespace { get; }
+
+        public static implicit operator StreamId(FullStreamIdentity identity) => StreamId.Create(identity);
     }
 }

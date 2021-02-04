@@ -364,7 +364,9 @@ namespace Orleans.Runtime.MembershipService
                     if (log.IsEnabled(LogLevel.Debug)) log.Debug("-Silo {0} Successfully updated my Status in the Membership table to {1}", myAddress, status);
 
                     var gossipTask = this.GossipToOthers(this.myAddress, status);
-                    var timeoutTask = Task.Delay(GossipTimeout);
+                    gossipTask.Ignore();
+                    var cancellation = new CancellationTokenSource();
+                    var timeoutTask = Task.Delay(GossipTimeout, cancellation.Token);
                     var task = await Task.WhenAny(gossipTask, timeoutTask);
                     if (ReferenceEquals(task, timeoutTask))
                     {
@@ -376,6 +378,10 @@ namespace Orleans.Runtime.MembershipService
                         {
                             this.log.LogDebug("Timed out while gossiping status to other silos after {Timeout}", GossipTimeout);
                         }
+                    }
+                    else
+                    {
+                        cancellation.Cancel();
                     }
                 }
                 else
@@ -653,8 +659,60 @@ namespace Orleans.Runtime.MembershipService
             }
             catch (Exception exception)
             {
-                this.log.LogWarning("Exception while gossiping status to other silos: {Exception}", exception);
+                this.log.LogWarning(exception, "Error while gossiping status to other silos");
             }
+        }
+
+        public async Task<bool> TryKill(SiloAddress silo)
+        {
+            var table = await membershipTableProvider.ReadAll();
+
+            if (log.IsEnabled(LogLevel.Debug))
+            {
+                log.LogDebug("TryKill: Read Membership table {0}", table.ToString());
+            }
+
+            if (this.IsStopping)
+            {
+                this.log.LogInformation(
+                    (int)ErrorCode.MembershipFoundMyselfDead3,
+                    "Ignoring call to TryKill for silo {Silo} since the local silo is stopping",
+                    silo);
+                return true;
+            }
+
+            var (localSiloEntry, _) = this.GetOrCreateLocalSiloEntry(table, this.CurrentStatus);
+            if (localSiloEntry.Status == SiloStatus.Dead)
+            {
+                var msg = string.Format("I should be Dead according to membership table (in TryKill): entry = {0}.", localSiloEntry.ToFullString(full: true));
+                log.LogWarning((int)ErrorCode.MembershipFoundMyselfDead3, msg);
+                KillMyselfLocally(msg);
+                return true;
+            }
+
+            if (!table.Contains(silo))
+            {
+                var str = string.Format("Could not find silo entry for silo {0} in the table.", silo);
+                log.LogError((int)ErrorCode.MembershipFailedToReadSilo, str);
+                throw new KeyNotFoundException(str);
+            }
+
+            var tuple = table.Get(silo);
+            var entry = tuple.Item1.Copy();
+            string eTag = tuple.Item2;
+
+            // Check if the table already knows that this silo is dead
+            if (entry.Status == SiloStatus.Dead)
+            {
+                this.ProcessTableUpdate(table, "TryKill");
+                return true;
+            }
+
+            log.LogInformation(
+                (int)ErrorCode.MembershipMarkingAsDead,
+                "Going to mark silo {SiloAddress} dead as a result of a call to TryKill",
+                entry.SiloAddress);
+            return await DeclareDead(entry, eTag, table.Version);
         }
 
         public async Task<bool> TryKill(SiloAddress silo)
@@ -842,7 +900,17 @@ namespace Orleans.Runtime.MembershipService
                 PrintSuspectList(freshVotes));
 
             // If we fail to update here we will retry later.
-            return await membershipTableProvider.UpdateRow(entry, eTag, table.Version.Next());
+            var ok = await membershipTableProvider.UpdateRow(entry, eTag, table.Version.Next());
+            if (ok)
+            {
+                table = await membershipTableProvider.ReadAll();
+                this.ProcessTableUpdate(table, "TrySuspectOrKill");
+
+                // Gossip using the local silo status, since this is just informational to propagate the suspicion vote.
+                GossipToOthers(localSiloEntry.SiloAddress, localSiloEntry.Status).Ignore();
+            }
+
+            return ok;
 
             string PrintSuspectList(IEnumerable<Tuple<SiloAddress, DateTime>> list)
             {
@@ -881,11 +949,7 @@ namespace Orleans.Runtime.MembershipService
             return true;
         }
 
-        bool IHealthCheckable.CheckHealth(DateTime lastCheckTime)
-        {
-            var ok = this.membershipUpdateTimer.CheckHealth(lastCheckTime);
-            return ok;
-        }
+        bool IHealthCheckable.CheckHealth(DateTime lastCheckTime, out string reason) => this.membershipUpdateTimer.CheckHealth(lastCheckTime, out reason);
 
         void ILifecycleParticipant<ISiloLifecycle>.Participate(ISiloLifecycle lifecycle)
         {

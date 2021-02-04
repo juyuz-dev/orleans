@@ -756,11 +756,6 @@ namespace Orleans.GrainDirectory.AzureStorage
             try
             {
                 CloudTableClient creationClient = await GetCloudTableClientAsync();
-                if (!string.IsNullOrEmpty(this.StoragePolicyOptions.PreferredRegion))
-                {
-                    creationClient.TableClientConfiguration.CosmosExecutorConfiguration.CurrentRegion = this.StoragePolicyOptions.PreferredRegion;
-                }
-
                 creationClient.DefaultRequestOptions.RetryPolicy = this.StoragePolicyOptions.CreationRetryPolicy;
                 creationClient.DefaultRequestOptions.ServerTimeout = this.StoragePolicyOptions.CreationTimeout;
                 // Values supported can be AtomPub, Json, JsonFullMetadata or JsonNoMetadata with Json being the default value
@@ -840,8 +835,7 @@ namespace Orleans.GrainDirectory.AzureStorage
         private void CheckAlertWriteError(string operation, object data1, string data2, Exception exc)
         {
             HttpStatusCode httpStatusCode;
-            string restStatus;
-            if (AzureTableUtils.EvaluateException(exc, out httpStatusCode, out restStatus) && AzureTableUtils.IsContentionError(httpStatusCode))
+            if (AzureTableUtils.EvaluateException(exc, out httpStatusCode, out _) && AzureTableUtils.IsContentionError(httpStatusCode))
             {
                 // log at Verbose, since failure on conditional is not not an error. Will analyze and warn later, if required.
                 if (Logger.IsEnabled(LogLevel.Debug)) Logger.Debug((int)Utilities.ErrorCode.AzureTable_13,

@@ -65,7 +65,6 @@ namespace Orleans.TestingHost
                     SiloAddress = siloHost.SiloAddress,
                     GatewayAddress = siloHost.GatewayAddress,
                     AppDomain = appDomain,
-                    AppDomainTestHook = siloHost.AppDomainTestHook,
                 };
 
                 return Task.FromResult(retValue);
@@ -164,11 +163,6 @@ namespace Orleans.TestingHost
             Console.WriteLine(value.ToString());
         }
 
-        /// <summary>Gets the Silo test hook that uses AppDomain remoting
-        /// (NOTE: this will be removed really soon, and was migrated here temporarily. It does not respect the abstraction
-        /// as this only works with AppDomains for now, but we'll be removing TestHooks with AppDomains entirely)</summary>
-        internal AppDomainTestHooks AppDomainTestHook { get; set; }
-
         internal static AppDomainSetup GetAppDomainSetupInfo(string applicationBase)
         {
             var currentAppDomain = AppDomain.CurrentDomain;
@@ -185,7 +179,7 @@ namespace Orleans.TestingHost
 
         private static void ReportUnobservedException(object sender, System.UnhandledExceptionEventArgs eventArgs)
         {
-            Exception exception = (Exception)eventArgs.ExceptionObject;
+            _ = (Exception)eventArgs.ExceptionObject;
             // WriteLog("Unobserved exception: {0}", exception);
         }
     }

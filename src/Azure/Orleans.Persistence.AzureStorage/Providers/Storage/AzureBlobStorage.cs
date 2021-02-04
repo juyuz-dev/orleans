@@ -34,6 +34,7 @@ namespace Orleans.Storage
         private SerializationManager serializationManager;
         private IGrainFactory grainFactory;
         private ITypeResolver typeResolver;
+        private readonly IServiceProvider services;
 
         /// <summary> Default constructor </summary>
         public AzureBlobGrainStorage(
@@ -42,6 +43,7 @@ namespace Orleans.Storage
             SerializationManager serializationManager,
             IGrainFactory grainFactory,
             ITypeResolver typeResolver,
+            IServiceProvider services,
             ILogger<AzureBlobGrainStorage> logger)
         {
             this.name = name;
@@ -49,6 +51,7 @@ namespace Orleans.Storage
             this.serializationManager = serializationManager;
             this.grainFactory = grainFactory;
             this.typeResolver = typeResolver;
+            this.services = services;
             this.logger = logger;
         }
 
@@ -221,7 +224,7 @@ namespace Orleans.Storage
             {
                 this.logger.LogInformation((int)AzureProviderErrorCode.AzureTableProvider_InitProvider, $"AzureTableGrainStorage initializing: {this.options.ToString()}");
                 this.logger.LogInformation((int)AzureProviderErrorCode.AzureTableProvider_ParamConnectionString, "AzureTableGrainStorage is using DataConnectionString: {0}", ConfigUtilities.RedactConnectionStringInfo(this.options.ConnectionString));
-                this.jsonSettings = OrleansJsonSerializer.UpdateSerializerSettings(OrleansJsonSerializer.GetDefaultSerializerSettings(this.typeResolver, this.grainFactory), this.options.UseFullAssemblyNames, this.options.IndentJson, this.options.TypeNameHandling);
+                this.jsonSettings = OrleansJsonSerializer.UpdateSerializerSettings(OrleansJsonSerializer.GetDefaultSerializerSettings(this.services), this.options.UseFullAssemblyNames, this.options.IndentJson, this.options.TypeNameHandling);
 
                 this.options.ConfigureJsonSerializerSettings?.Invoke(this.jsonSettings);
 

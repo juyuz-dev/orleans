@@ -30,18 +30,14 @@ namespace Orleans
 
         private readonly ConcurrentDictionary<CorrelationId, CallbackData> callbacks;
         private InvokableObjectManager localObjects;
-
         private bool disposing;
 
         private ClientProviderRuntime clientProviderRuntime;
 
         internal readonly ClientStatisticsManager ClientStatistics;
         private readonly MessagingTrace messagingTrace;
-        private readonly GrainId clientId;
+        private readonly ClientGrainId clientId;
         private ThreadTrackingStatistic incomingMessagesThreadTimeTracking;
-
-        private readonly TimeSpan typeMapRefreshInterval;
-        private AsyncTaskSafeTimer typeMapRefreshTimer = null;
 
         private static readonly TimeSpan ResetTimeout = TimeSpan.FromMinutes(1);
 
@@ -84,7 +80,6 @@ namespace Orleans
         public OutsideRuntimeClient(
             ILoggerFactory loggerFactory, 
             IOptions<ClientMessagingOptions> clientMessagingOptions,
-            IOptions<TypeManagementOptions> typeManagementOptions,
             IOptions<StatisticsOptions> statisticsOptions,
             ApplicationRequestsStatisticsGroup appRequestStatistics,
             StageAnalysisStatisticsGroup schedulerStageStatistics,
@@ -98,10 +93,9 @@ namespace Orleans
             this.ClientStatistics = clientStatisticsManager;
             this.messagingTrace = messagingTrace;
             this.logger = loggerFactory.CreateLogger<OutsideRuntimeClient>();
-            this.clientId = GrainId.NewClientId();
+            this.clientId = ClientGrainId.Create();
             callbacks = new ConcurrentDictionary<CorrelationId, CallbackData>();
             this.clientMessagingOptions = clientMessagingOptions.Value;
-            this.typeMapRefreshInterval = typeManagementOptions.Value.TypeMapRefreshInterval;
 
             this.sharedCallbackData = new SharedCallbackData(
                 msg => this.UnregisterCallback(msg.Id),
@@ -134,10 +128,11 @@ namespace Orleans
 
                 var serializationManager = this.ServiceProvider.GetRequiredService<SerializationManager>();
                 this.localObjects = new InvokableObjectManager(
+                    services.GetRequiredService<ClientGrainContext>(),
                     this,
                     serializationManager,
                     this.messagingTrace,
-                    this.loggerFactory.CreateLogger<InvokableObjectManager>());
+                    this.loggerFactory.CreateLogger<ClientGrainContext>());
 
                 var timerLogger = this.loggerFactory.CreateLogger<SafeTimer>();
                 var minTicks = Math.Min(this.clientMessagingOptions.ResponseTimeout.Ticks, TimeSpan.FromSeconds(1).Ticks);
@@ -181,19 +176,13 @@ namespace Orleans
 
         public IServiceProvider ServiceProvider { get; private set; }
 
-        private async Task StreamingInitialize()
-        {
-            var implicitSubscriberTable = await MessageCenter.GetImplicitStreamSubscriberTable(this.InternalGrainFactory);
-            clientProviderRuntime.StreamingInitialize(implicitSubscriberTable);
-        }
-
         public async Task Start(Func<Exception, Task<bool>> retryFilter = null)
         {
             // Deliberately avoid capturing the current synchronization context during startup and execute on the default scheduler.
             // This helps to avoid any issues (such as deadlocks) caused by executing with the client's synchronization context/scheduler.
             await Task.Run(() => this.StartInternal(retryFilter));
 
-            logger.Info(ErrorCode.ProxyClient_StartDone, "{0} Started OutsideRuntimeClient with Global Client ID: {1}", BARS, CurrentActivationAddress.ToString() + ", client GUID ID: " + clientId);
+            logger.Info(ErrorCode.ProxyClient_StartDone, "{0} Started OutsideRuntimeClient with Global Client ID: {1}", BARS, CurrentActivationAddress.ToString() + ", client ID: " + clientId);
         }
         
         // used for testing to (carefully!) allow two clients in the same process
@@ -206,25 +195,18 @@ namespace Orleans
             MessageCenter = ActivatorUtilities.CreateInstance<ClientMessageCenter>(this.ServiceProvider, localAddress, generation, clientId);
             MessageCenter.RegisterLocalMessageHandler(this.HandleMessage);
             MessageCenter.Start();
-            CurrentActivationAddress = ActivationAddress.NewActivationAddress(MessageCenter.MyAddress, clientId);
+            CurrentActivationAddress = ActivationAddress.NewActivationAddress(MessageCenter.MyAddress, clientId.GrainId);
 
             this.gatewayObserver = new ClientGatewayObserver(gatewayManager);
             this.InternalGrainFactory.CreateObjectReference<IClientGatewayObserver>(this.gatewayObserver);
 
             await ExecuteWithRetries(
-                async () => this.GrainTypeResolver = await MessageCenter.GetGrainTypeResolver(this.InternalGrainFactory),
+                async () => await this.ServiceProvider.GetRequiredService<ClientClusterManifestProvider>().StartAsync(),
                 retryFilter);
 
-            this.typeMapRefreshTimer = new AsyncTaskSafeTimer(
-                this.logger, 
-                RefreshGrainTypeResolver, 
-                null,
-                this.typeMapRefreshInterval,
-                this.typeMapRefreshInterval);
-
-            ClientStatistics.Start(MessageCenter, clientId);
+            ClientStatistics.Start(MessageCenter, clientId.GrainId);
             
-            await ExecuteWithRetries(StreamingInitialize, retryFilter);
+            clientProviderRuntime.StreamingInitialize();
 
             async Task ExecuteWithRetries(Func<Task> task, Func<Exception, Task<bool>> shouldRetry)
             {
@@ -244,27 +226,8 @@ namespace Orleans
             }
         }
 
-        private async Task RefreshGrainTypeResolver(object _)
-        {
-            try
-            {
-                GrainTypeResolver = await MessageCenter.GetGrainTypeResolver(this.InternalGrainFactory);
-            }
-            catch(Exception ex)
-            {
-                this.logger.Warn(ErrorCode.TypeManager_GetClusterGrainTypeResolverError, "Refresh the GrainTypeResolver failed. Will be retried after", ex);
-            }
-        }
-
         private void HandleMessage(Message message)
         {
-            if (message.CloseRequested)
-            {
-                this.logger.LogInformation("Gateway {Gateway} request us to stop sending message to it", message.SendingSilo);
-                this.MessageCenter.StopSendingMessageTo(message.SendingSilo);
-                return;
-            }
-
             switch (message.Direction)
             {
                 case Message.Directions.Response:
@@ -295,36 +258,28 @@ namespace Orleans
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2000:Dispose objects before losing scope",
             Justification = "CallbackData is IDisposable but instances exist beyond lifetime of this method so cannot Dispose yet.")]
-        public void SendRequest(GrainReference target, InvokeMethodRequest request, TaskCompletionSource<object> context, InvokeMethodOptions options, string genericArguments)
+        public void SendRequest(GrainReference target, InvokeMethodRequest request, TaskCompletionSource<object> context, InvokeMethodOptions options)
         {
             var message = this.messageFactory.CreateMessage(request, options);
             OrleansOutsideRuntimeClientEvent.Log.SendRequest(message);
-            SendRequestMessage(target, message, context, options, genericArguments);
+            SendRequestMessage(target, message, context, options);
         }
 
-        private void SendRequestMessage(GrainReference target, Message message, TaskCompletionSource<object> context, InvokeMethodOptions options, string genericArguments)
+        private void SendRequestMessage(GrainReference target, Message message, TaskCompletionSource<object> context, InvokeMethodOptions options)
         {
+            message.InterfaceType = target.InterfaceType;
+            message.InterfaceVersion = target.InterfaceVersion;
             var targetGrainId = target.GrainId;
             var oneWay = (options & InvokeMethodOptions.OneWay) != 0;
             message.SendingGrain = CurrentActivationAddress.Grain;
             message.SendingActivation = CurrentActivationAddress.Activation;
             message.TargetGrain = targetGrainId;
-            if (!String.IsNullOrEmpty(genericArguments))
-                message.GenericGrainType = genericArguments;
 
-            if (targetGrainId.IsSystemTarget)
+            if (SystemTargetGrainId.TryParse(targetGrainId, out var systemTargetGrainId))
             {
                 // If the silo isn't be supplied, it will be filled in by the sender to be the gateway silo
-                message.TargetSilo = target.SystemTargetSilo;
-                if (target.SystemTargetSilo != null)
-                {
-                    message.TargetActivation = ActivationId.GetSystemActivation(targetGrainId, target.SystemTargetSilo);
-                }
-            }
-            // Client sending messages to another client (observer). Yes, we support that.
-            if (target.IsObserverReference)
-            {
-                message.TargetObserverId = target.ObserverId;
+                message.TargetSilo = systemTargetGrainId.GetSiloAddress();
+                message.TargetActivation = ActivationId.GetDeterministic(targetGrainId);
             }
 
             if (message.IsExpirableMessage(this.clientMessagingOptions.DropExpiredMessages))
@@ -406,8 +361,7 @@ namespace Orleans
 
         private void UnregisterCallback(CorrelationId id)
         {
-            CallbackData ignore;
-            callbacks.TryRemove(id, out ignore);
+            callbacks.TryRemove(id, out _);
         }
 
         public void Reset(bool cleanup)
@@ -420,14 +374,6 @@ namespace Orleans
                 }
             }, this.logger);
 
-            Utils.SafeExecute(() =>
-            {
-                if (typeMapRefreshTimer != null)
-                {
-                    typeMapRefreshTimer.Dispose();
-                    typeMapRefreshTimer = null;
-                }
-            }, logger, "Client.typeMapRefreshTimer.Dispose");
             Utils.SafeExecute(() =>
             {
                 if (clientProviderRuntime != null)
@@ -485,7 +431,7 @@ namespace Orleans
         /// <inheritdoc />
         public void SetResponseTimeout(TimeSpan timeout) => this.sharedCallbackData.ResponseTimeout = timeout;
 
-        public GrainReference CreateObjectReference(IAddressable obj, IGrainMethodInvoker invoker)
+        public IAddressable CreateObjectReference(IAddressable obj, IGrainMethodInvoker invoker)
         {
             if (obj is GrainReference)
                 throw new ArgumentException("Argument obj is already a grain reference.", nameof(obj));
@@ -493,28 +439,35 @@ namespace Orleans
             if (obj is Grain)
                 throw new ArgumentException("Argument must not be a grain class.", nameof(obj));
 
-            GrainReference gr;
+            var observerId = obj is ClientObserver clientObserver
+                ? clientObserver.GetObserverGrainId(this.clientId)
+                : ObserverGrainId.Create(this.clientId);
+            var reference = this.InternalGrainFactory.GetGrain(observerId.GrainId);
 
-            if (obj is ClientObserver clientObserver)
-                gr = GrainReference.NewObserverGrainReference(GrainId.NewClientId(Guid.Empty), clientObserver.ObserverId, this.GrainReferenceRuntime);
-            else
-                gr = GrainReference.NewObserverGrainReference(clientId, GuidId.GetNewGuidId(), this.GrainReferenceRuntime);
-
-            if (!localObjects.TryRegister(obj, gr.ObserverId, invoker))
+            if (!localObjects.TryRegister(obj, observerId, invoker))
             {
-                throw new ArgumentException(String.Format("Failed to add new observer {0} to localObjects collection.", gr), "gr");
+                throw new ArgumentException($"Failed to add new observer {reference} to localObjects collection.", "reference");
             }
-            return gr;
+
+            return reference;
         }
 
         public void DeleteObjectReference(IAddressable obj)
         {
-            if (!(obj is GrainReference))
+            if (!(obj is GrainReference reference))
+            {
                 throw new ArgumentException("Argument reference is not a grain reference.");
+            }
 
-            var reference = (GrainReference)obj;
-            if (!localObjects.TryDeregister(reference.ObserverId))
+            if (!ObserverGrainId.TryParse(reference.GrainId, out var observerId))
+            {
+                throw new ArgumentException($"Reference {reference.GrainId} is not an observer reference");
+            }
+
+            if (!localObjects.TryDeregister(observerId))
+            {
                 throw new ArgumentException("Reference is not associated with a local object.", "reference");
+            }
         }
 
         private string PrintAppDomainDetails()
@@ -528,14 +481,6 @@ namespace Orleans
             this.disposing = true;
             
             Utils.SafeExecute(() => this.callbackTimer?.Dispose());
-            Utils.SafeExecute(() =>
-            {
-                if (typeMapRefreshTimer != null)
-                {
-                    typeMapRefreshTimer.Dispose();
-                    typeMapRefreshTimer = null;
-                }
-            });
             
             Utils.SafeExecute(() => MessageCenter?.Dispose());
 
@@ -544,8 +489,6 @@ namespace Orleans
 
             GC.SuppressFinalize(this);
         }
-
-        public IGrainTypeResolver GrainTypeResolver { get; private set; }
 
         public void BreakOutstandingMessagesToDeadSilo(SiloAddress deadSilo)
         {

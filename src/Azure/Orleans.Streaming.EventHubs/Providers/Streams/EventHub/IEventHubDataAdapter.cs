@@ -1,6 +1,7 @@
 using System;
-using Microsoft.Azure.EventHubs;
+using Azure.Messaging.EventHubs;
 using Orleans.Providers.Streams.Common;
+using Orleans.Runtime;
 using Orleans.Streams;
 
 namespace Orleans.ServiceBus.Providers
@@ -13,8 +14,8 @@ namespace Orleans.ServiceBus.Providers
 
         string GetOffset(CachedMessage cachedMessage);
 
-        string GetPartitionKey(Guid streamGuid, string streamNamespace);
+        string GetPartitionKey(StreamId streamId);
 
-        IStreamIdentity GetStreamIdentity(EventData queueMessage);
+        StreamId GetStreamIdentity(EventData queueMessage);
     }
 }

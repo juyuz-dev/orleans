@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Orleans;
+using Orleans.Configuration;
 using Orleans.Runtime;
 using Orleans.Runtime.Configuration;
 using Orleans.Runtime.ReminderService;
@@ -28,6 +31,8 @@ namespace UnitTests.Grains
 
         private static long aCCURACY = 50 * TimeSpan.TicksPerMillisecond; // when we use ticks to compute sequence numbers, we might get wrong results as timeouts don't happen with precision of ticks  ... we keep this as a leeway
 
+        private IOptions<ReminderOptions> reminderOptions;
+
         private ILogger logger;
         private string myId; // used to distinguish during debugging between multiple activations of the same grain
 
@@ -38,6 +43,7 @@ namespace UnitTests.Grains
             this.reminderTable = reminderTable;
             this.unvalidatedReminderRegistry = new UnvalidatedReminderRegistry(services);
             this.logger = loggerFactory.CreateLogger($"{this.GetType().Name}-{this.IdentityString}");
+            this.reminderOptions = services.GetService<IOptions<ReminderOptions>>();
         }
 
         public override Task OnActivateAsync()
@@ -47,7 +53,7 @@ namespace UnitTests.Grains
             this.sequence = new Dictionary<string, long>();
             this.period = GetDefaultPeriod(this.logger);
             this.logger.Info("OnActivateAsync.");
-            this.filePrefix = "g" + this.Identity.PrimaryKey + "_";
+            this.filePrefix = "g" + this.GrainId.ToString().Replace('/', '_') + "_";
             return GetMissingReminders();
         }
 
@@ -61,11 +67,16 @@ namespace UnitTests.Grains
         {
             TimeSpan usePeriod = p ?? this.period;
             this.logger.Info("Starting reminder {0}.", reminderName);
-            IGrainReminder r = null;
+            TimeSpan dueTime;
+            if (reminderOptions.Value.MinimumReminderPeriod < TimeSpan.FromSeconds(2))
+                dueTime = TimeSpan.FromSeconds(2) - reminderOptions.Value.MinimumReminderPeriod;
+            else dueTime = usePeriod - TimeSpan.FromSeconds(2);
+
+            IGrainReminder r;
             if (validate)
-                r = await RegisterOrUpdateReminder(reminderName, usePeriod - TimeSpan.FromSeconds(2), usePeriod);
+                r = await RegisterOrUpdateReminder(reminderName, dueTime, usePeriod);
             else
-                r = await this.unvalidatedReminderRegistry.RegisterOrUpdateReminder(reminderName, usePeriod - TimeSpan.FromSeconds(2), usePeriod);
+                r = await this.unvalidatedReminderRegistry.RegisterOrUpdateReminder(reminderName, dueTime, usePeriod);
 
             this.allReminders[reminderName] = r;
             this.sequence[reminderName] = 0;
@@ -78,7 +89,7 @@ namespace UnitTests.Grains
 
         public Task ReceiveReminder(string reminderName, TickStatus status)
         {
-            // it can happen that due to failure, when a new activation is created, 
+            // it can happen that due to failure, when a new activation is created,
             // it doesn't know which reminders were registered against the grain
             // hence, this activation may receive a reminder that it didn't register itself, but
             // the previous activation (incarnation of the grain) registered... so, play it safe
@@ -124,7 +135,7 @@ namespace UnitTests.Grains
             this.logger.Info("Stopping reminder {0}.", reminderName);
             // we dont reset counter as we want the test methods to be able to read it even after stopping the reminder
             //return UnregisterReminder(allReminders[reminderName]);
-            IGrainReminder reminder = null;
+            IGrainReminder reminder;
             if (this.allReminders.TryGetValue(reminderName, out reminder))
             {
                 await UnregisterReminder(reminder);
@@ -132,7 +143,7 @@ namespace UnitTests.Grains
             else
             {
                 // during failures, there may be reminders registered by an earlier activation that we dont have cached locally
-                // therefore, we need to update our local cache 
+                // therefore, we need to update our local cache
                 await GetMissingReminders();
                 if (this.allReminders.TryGetValue(reminderName, out reminder))
                 {
@@ -240,7 +251,7 @@ namespace UnitTests.Grains
             this.sequence = new Dictionary<string, long>();
             this.period = ReminderTestGrain2.GetDefaultPeriod(this.logger);
             this.logger.Info("OnActivateAsync.");
-            this.filePrefix = "gc" + this.Identity.PrimaryKey + "_";
+            this.filePrefix = "gc" + this.GrainId.Key + "_";
             await GetMissingReminders();
         }
 
@@ -253,8 +264,8 @@ namespace UnitTests.Grains
         public async Task<IGrainReminder> StartReminder(string reminderName, TimeSpan? p = null, bool validate = false)
         {
             TimeSpan usePeriod = p ?? this.period;
-            this.logger.Info("Starting reminder {0} for {1}", reminderName, this.Identity);
-            IGrainReminder r = null;
+            this.logger.Info("Starting reminder {0} for {1}", reminderName, this.GrainId);
+            IGrainReminder r;
             if (validate)
                 r = await RegisterOrUpdateReminder(reminderName, /*TimeSpan.FromSeconds(3)*/usePeriod - TimeSpan.FromSeconds(2), usePeriod);
             else
@@ -280,7 +291,7 @@ namespace UnitTests.Grains
 
         public Task ReceiveReminder(string reminderName, TickStatus status)
         {
-            // it can happen that due to failure, when a new activation is created, 
+            // it can happen that due to failure, when a new activation is created,
             // it doesn't know which reminders were registered against the grain
             // hence, this activation may receive a reminder that it didn't register itself, but
             // the previous activation (incarnation of the grain) registered... so, play it safe
@@ -324,7 +335,7 @@ namespace UnitTests.Grains
             this.logger.Info("Stopping reminder {0}.", reminderName);
             // we dont reset counter as we want the test methods to be able to read it even after stopping the reminder
             //return UnregisterReminder(allReminders[reminderName]);
-            IGrainReminder reminder = null;
+            IGrainReminder reminder;
             if (this.allReminders.TryGetValue(reminderName, out reminder))
             {
                 await UnregisterReminder(reminder);
@@ -332,7 +343,7 @@ namespace UnitTests.Grains
             else
             {
                 // during failures, there may be reminders registered by an earlier activation that we dont have cached locally
-                // therefore, we need to update our local cache 
+                // therefore, we need to update our local cache
                 await GetMissingReminders();
                 await UnregisterReminder(this.allReminders[reminderName]);
             }

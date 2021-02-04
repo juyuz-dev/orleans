@@ -215,6 +215,7 @@ namespace TestServiceFabric
             public void Dispose()
             {
             }
+
             public ValueTask DisposeAsync() => default;
         }
     }

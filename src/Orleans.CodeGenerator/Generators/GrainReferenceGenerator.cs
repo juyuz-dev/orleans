@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Orleans.CodeGenerator.Compatibility;
 using Orleans.CodeGenerator.Model;
 using Orleans.CodeGenerator.Utilities;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
@@ -70,7 +69,6 @@ namespace Orleans.CodeGenerator.Generators
                         GrainInterfaceCommon.GenerateInterfaceIdProperty(this.wellKnownTypes, description).AddModifiers(Token(SyntaxKind.OverrideKeyword)),
                         GrainInterfaceCommon.GenerateInterfaceVersionProperty(this.wellKnownTypes, description).AddModifiers(Token(SyntaxKind.OverrideKeyword)),
                         GenerateInterfaceNameProperty(description),
-                        GenerateIsCompatibleMethod(description),
                         GenerateGetMethodNameMethod(description))
                     .AddMembers(GenerateInvokeMethods(description))
                     .AddAttributeLists(attributes);
@@ -152,6 +150,9 @@ namespace Orleans.CodeGenerator.Generators
                         allParameters.Add(TypeOfExpression(typeParameter.ToTypeSyntax()));
                     }
 
+                    // PR: 6844 (fix generic overload selector in GenericMethodInvoker)
+                    allParameters.AddRange(parameters.Select(p => TypeOfExpression(p.Symbol.Type.ToTypeSyntax())));
+                    
                     allParameters.AddRange(parameters.Select(p => GetParameterForInvocation(p.Symbol, p.Name)));
 
                     args =
@@ -201,7 +202,8 @@ namespace Orleans.CodeGenerator.Generators
                             var done = wellKnownTypes.Task.ToNameSyntax().Member((object _) => Task.CompletedTask);
                             body.Add(ReturnStatement(done));
                         }
-                        else if (SymbolEqualityComparer.Default.Equals(wellKnownTypes.ValueTaskNamed, method.ReturnType))
+                        else if (wellKnownTypes.ValueTask is WellKnownTypes.Some valueTask
+                            && SymbolEqualityComparer.Default.Equals(valueTask.Value, method.ReturnType))
                         {
                             body.Add(ReturnStatement(LiteralExpression(SyntaxKind.DefaultLiteralExpression)));
                         }
@@ -211,8 +213,6 @@ namespace Orleans.CodeGenerator.Generators
                                 $"Method {method} is marked with [{wellKnownTypes.OneWayAttribute.Name}], " +
                                 $"but has a return type which is not assignable from {typeof(Task)} or {typeof(ValueTask)}");
                         }
-
-                        
                     }
                 }
                 else if (method.ReturnType is INamedTypeSymbol methodReturnType)
@@ -370,37 +370,6 @@ namespace Orleans.CodeGenerator.Generators
             }
 
             return Argument(NameColon("options"), Token(SyntaxKind.None), allOptions);
-        }
-
-        private MemberDeclarationSyntax GenerateIsCompatibleMethod(GrainInterfaceDescription description)
-        {
-            var method = wellKnownTypes.GrainReference.Method("IsCompatible");
-            var interfaceIdParameter = method.Parameters[0].Name.ToIdentifierName();
-
-            var interfaceIds =
-                new HashSet<int>(
-                    new[] { description.InterfaceId }.Concat(
-                        description.Type.AllInterfaces.Where(wellKnownTypes.IsGrainInterface).Select(wellKnownTypes.GetTypeId)));
-
-            var returnValue = default(BinaryExpressionSyntax);
-            foreach (var interfaceId in interfaceIds)
-            {
-                var check = BinaryExpression(
-                    SyntaxKind.EqualsExpression,
-                    interfaceIdParameter,
-                    interfaceId.ToHexLiteral());
-
-                // If this is the first check, assign it, otherwise OR this check with the previous checks.
-                returnValue = returnValue == null
-                                  ? check
-                                  : BinaryExpression(SyntaxKind.LogicalOrExpression, returnValue, check);
-            }
-
-            return
-                method.GetDeclarationSyntax()
-                    .AddModifiers(Token(SyntaxKind.OverrideKeyword))
-                    .WithExpressionBody(ArrowExpressionClause(returnValue))
-                    .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
         }
 
         private MemberDeclarationSyntax GenerateInterfaceNameProperty(GrainInterfaceDescription description)

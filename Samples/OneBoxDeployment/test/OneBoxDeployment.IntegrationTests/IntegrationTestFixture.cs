@@ -6,14 +6,13 @@ using Dapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
 using Orleans.Configuration;
 using Orleans.Hosting;
 using Polly;
 using Polly.Extensions.Http;
 using System;
 using System.Collections.Generic;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -21,6 +20,8 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 using Program = OneBoxDeployment.Api.Program;
+using System.Net.Mime;
+using System.Text.Json;
 
 namespace OneBoxDeployment.IntegrationTests
 {
@@ -120,6 +121,10 @@ namespace OneBoxDeployment.IntegrationTests
         /// </summary>
         public string DefaultIdentityRootUrl { get; set; }
 
+        /// <summary>
+        /// This route can be used to test pipeline exception handling during tests.
+        /// </summary>
+        public const string FaultyRouteUrlFragment = "/internalservererror";
 
         /// <summary>
         /// These are testing only default extra parameters that should not be present in a running application.
@@ -130,15 +135,13 @@ namespace OneBoxDeployment.IntegrationTests
             //This setting creates a route that will always throw an exception. It's injected with a
             //a setting to not to create the route in production. This is built like this also so that
             //there would not be a path to accidentally inject faulty code to production.
-            { ConfigurationKeys.AlwaysFaultyRoute, "/internalservererror" }
+            { ConfigurationKeys.AlwaysFaultyRoute, FaultyRouteUrlFragment }
         };
-
 
         /// <summary>
         /// The test message sink.
         /// </summary>
         public IMessageSink MessageSink { get; }
-
 
         /// <summary>
         /// The in-memory storage of logs in the whole system.
@@ -194,8 +197,8 @@ namespace OneBoxDeployment.IntegrationTests
             var services = new ServiceCollection();
             services.AddTypedHttpClient<FaultyRouteClient>(httpClient =>
             {
-                httpClient.BaseAddress = new Uri(DefaultApiRootUrl);
-                httpClient.DefaultRequestHeaders.Add("Accept", "application/json");
+                httpClient.BaseAddress = new Uri(new Uri(DefaultApiRootUrl), FaultyRouteUrlFragment);
+                httpClient.DefaultRequestHeaders.Add("Accept", MediaTypeNames.Application.Json);
                 httpClient.DefaultRequestHeaders.Add("x-correlation-id", "test123");
             })
             .AddHttpMessageHandler(_ => new SecurityHeaderTestMessageHandler());
@@ -247,7 +250,9 @@ namespace OneBoxDeployment.IntegrationTests
             var silo2 = BuildSilo(CreateClusterConfig(ClusterId, ServiceId));
             await Task.WhenAll(silo1.StartAsync(), silo2.StartAsync()).ConfigureAwait(false);
 
-            DefaultExtraParameters.Add(nameof(ClusterConfig), JsonConvert.SerializeObject(siloConfig, Formatting.Indented, new IPAddressConverter()));
+            var serializeOptions = new JsonSerializerOptions();
+            serializeOptions.Converters.Add(new IPAddressConverter());
+            DefaultExtraParameters.Add(nameof(ClusterConfig), JsonSerializer.Serialize(siloConfig, serializeOptions));
             ApiHost = Program.InternalBuildWebHost(new[] { "--server.urls", DefaultApiRootUrl }, DefaultExtraParameters, new[] { InMemoryLoggerProvider });
             var apiServerTask = ApiHost.StartAsync();
 
@@ -268,7 +273,7 @@ namespace OneBoxDeployment.IntegrationTests
         /// <returns>A new cluster configuration.</returns>
         public static ClusterConfig CreateClusterConfig(string clusterId, string serviceId)
         {
-            const string AdoNetInvariant = "System.Data.SqlClient";
+            const string AdoNetInvariant = "Microsoft.Data.SqlClient";
             int GatewayPort = PlatformUtilities.GetFreePortFromEphemeralRange();
             int SiloPort = PlatformUtilities.GetFreePortFromEphemeralRange();
             return new ClusterConfig

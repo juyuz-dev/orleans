@@ -25,7 +25,7 @@ namespace Orleans.Runtime.GrainDirectory
             AdaptiveGrainDirectoryCache cache,
             IInternalGrainFactory grainFactory,
             ILoggerFactory loggerFactory)
-            :base(nameSuffix: null, loggerFactory)
+            : base(loggerFactory)
         {
             this.grainFactory = grainFactory;
             this.router = router;
@@ -137,7 +137,7 @@ namespace Orleans.Runtime.GrainDirectory
 
                 router.CacheValidationsSent.Increment();
                 // Send all of the items in one large request
-                var validator = this.grainFactory.GetSystemTarget<IRemoteGrainDirectory>(Constants.DirectoryCacheValidatorId, silo);
+                var validator = this.grainFactory.GetSystemTarget<IRemoteGrainDirectory>(Constants.DirectoryCacheValidatorType, silo);
 
                 router.Scheduler.QueueTask(async () =>
                 {

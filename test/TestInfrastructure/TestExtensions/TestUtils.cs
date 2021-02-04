@@ -33,6 +33,7 @@ namespace Tester
             if (!usingLocalWAS)
             {
                 // Tests are using Azure Cloud Storage, not local WAS emulator.
+                ForceTlsVersion();
                 return;
             }
 
@@ -51,17 +52,22 @@ namespace Tester
             {
                 throw new SkipException("No connection string found. Skipping");
             }
+            ForceTlsVersion();
+        }
+
+        private static void ForceTlsVersion()
+        {
+            // Force TLS 1.2
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
         }
 
         public static double CalibrateTimings()
         {
             const int NumLoops = 10000;
             TimeSpan baseline = TimeSpan.FromTicks(80); // Baseline from jthelin03D
-            int n;
             var sw = Stopwatch.StartNew();
             for (int i = 0; i < NumLoops; i++)
             {
-                n = i;
             }
             sw.Stop();
             double multiple = 1.0 * sw.ElapsedTicks / baseline.Ticks;

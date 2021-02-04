@@ -56,7 +56,7 @@ namespace Tester.Forwarding
             this.EnsurePreconditionsMet();
         }
 
-        [Fact(Skip = "https://github.com/dotnet/orleans/issues/2287"), TestCategory("Forward"), TestCategory("Functional")]
+        [Fact(Skip = "https://github.com/dotnet/orleans/issues/6423"), TestCategory("Forward"), TestCategory("Functional")]
         public async Task SiloGracefulShutdown_ForwardPendingRequest()
         {
             var grain = await GetLongRunningTaskGrainOnSecondary<bool>();
@@ -107,8 +107,7 @@ namespace Tester.Forwarding
         public async Task SiloGracefulShutdown_StuckActivation()
         {
             var grain = await GetTimerRequestGrainOnSecondary();
-
-            var promise = grain.StartAndWaitTimerTick(TimeSpan.FromMinutes(2));
+            _ = grain.StartAndWaitTimerTick(TimeSpan.FromMinutes(2));
 
             await Task.Delay(500);
             var stopwatch = Stopwatch.StartNew();

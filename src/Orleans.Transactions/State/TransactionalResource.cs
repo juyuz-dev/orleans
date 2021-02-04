@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Orleans.Transactions.Abstractions;
 
@@ -22,7 +22,7 @@ namespace Orleans.Transactions.State
 
             record.Timestamp = timeStamp;
             record.Role = CommitRole.ReadOnly;
-            record.PromiseForTA = new TaskCompletionSource<TransactionalStatus>();
+            record.PromiseForTA = new TaskCompletionSource<TransactionalStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             if (!valid)
             {

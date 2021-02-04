@@ -16,6 +16,7 @@ namespace Orleans.Runtime.Messaging
         private readonly MessageCenter messageCenter;
         private readonly ConnectionManager connectionManager;
         private readonly ConnectionOptions connectionOptions;
+        private readonly ProbeRequestMonitor probeMonitor;
 
         public SiloConnection(
             SiloAddress remoteSiloAddress,
@@ -25,12 +26,14 @@ namespace Orleans.Runtime.Messaging
             ILocalSiloDetails localSiloDetails,
             ConnectionManager connectionManager,
             ConnectionOptions connectionOptions,
-            ConnectionCommon connectionShared)
+            ConnectionCommon connectionShared,
+            ProbeRequestMonitor probeMonitor)
             : base(connection, middleware, connectionShared)
         {
             this.messageCenter = messageCenter;
             this.connectionManager = connectionManager;
             this.connectionOptions = connectionOptions;
+            this.probeMonitor = probeMonitor;
             this.LocalSiloAddress = localSiloDetails.SiloAddress;
             this.RemoteSiloAddress = remoteSiloAddress;
         }
@@ -66,7 +69,7 @@ namespace Orleans.Runtime.Messaging
 
             // If we've stopped application message processing, then filter those out now
             // Note that if we identify or add other grains that are required for proper stopping, we will need to treat them as we do the membership table grain here.
-            if (messageCenter.IsBlockingApplicationMessages && (msg.Category == Message.Categories.Application) && !Constants.SystemMembershipTableId.Equals(msg.SendingGrain))
+            if (messageCenter.IsBlockingApplicationMessages && (msg.Category == Message.Categories.Application) && !Constants.SystemMembershipTableType.Equals(msg.SendingGrain))
             {
                 // We reject new requests, and drop all other messages
                 if (msg.Direction != Message.Directions.Request)
@@ -83,7 +86,7 @@ namespace Orleans.Runtime.Messaging
 
             // Make sure the message is for us. Note that some control messages may have no target
             // information, so a null target silo is OK.
-            if ((msg.TargetSilo == null) || msg.TargetSilo.Matches(this.LocalSiloAddress))
+            if (msg.TargetSilo == null || msg.TargetSilo.Matches(this.LocalSiloAddress))
             {
                 // See if it's a message for a client we're proxying.
                 if (messageCenter.TryDeliverToProxy(msg))
@@ -154,6 +157,7 @@ namespace Orleans.Runtime.Messaging
             }
             else
             {
+                this.probeMonitor.OnReceivedProbeRequest();
                 var response = this.MessageFactory.CreateResponseMessage(msg);
                 response.BodyObject = PingResponse;
                 this.Send(response);

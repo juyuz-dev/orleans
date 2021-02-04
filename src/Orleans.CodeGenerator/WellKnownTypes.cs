@@ -28,6 +28,7 @@ namespace Orleans.CodeGenerator
             GrainReference = Type("Orleans.Runtime.GrainReference");
             GrainReferenceAttribute = Type("Orleans.CodeGeneration.GrainReferenceAttribute");
             IAddressable = Type("Orleans.Runtime.IAddressable");
+            IGrainContext = Type("Orleans.Runtime.IGrainContext");
             ICopyContext = Type("Orleans.Serialization.ICopyContext");
             IDeserializationContext = Type("Orleans.Serialization.IDeserializationContext");
             IFieldUtils = Type("Orleans.Serialization.IFieldUtils");
@@ -63,7 +64,6 @@ namespace Orleans.CodeGenerator
             SerializerFeature = Type("Orleans.Serialization.SerializerFeature");
             String = compilation.GetSpecialType(SpecialType.System_String);
             Task = Type("System.Threading.Tasks.Task");
-            ValueTaskNamed = Type("System.Threading.Tasks.ValueTask");
             Task_1 = Type("System.Threading.Tasks.Task`1");
             ValueTask = OptionalType("System.Threading.Tasks.ValueTask");
             TimeSpan = Type("System.TimeSpan");
@@ -185,6 +185,7 @@ namespace Orleans.CodeGenerator
         public INamedTypeSymbol GrainReferenceAttribute { get; }
         public INamedTypeSymbol IAddressable { get; }
         public INamedTypeSymbol ICopyContext { get; }
+        public INamedTypeSymbol IGrainContext { get; }
         public INamedTypeSymbol IDeserializationContext { get; }
         public INamedTypeSymbol IFieldUtils { get; }
         public INamedTypeSymbol IGrain { get; }
@@ -221,7 +222,6 @@ namespace Orleans.CodeGenerator
         public INamedTypeSymbol String { get; }
         public INamedTypeSymbol Task { get; }
         public INamedTypeSymbol Task_1 { get; }
-        public INamedTypeSymbol ValueTaskNamed { get; }
         public OptionalType ValueTask { get; }
         public INamedTypeSymbol TransactionAttribute { get; }
         public INamedTypeSymbol TransactionOption { get; }

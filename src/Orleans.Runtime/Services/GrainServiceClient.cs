@@ -13,23 +13,22 @@ namespace Orleans.Runtime.Services
     /// <typeparam name="TGrainService"></typeparam>
     public abstract class GrainServiceClient<TGrainService> : IGrainServiceClient<TGrainService> where TGrainService : IGrainService
     {
-        private readonly ISiloRuntimeClient runtimeClient;
         private readonly IInternalGrainFactory grainFactory;
         private readonly IConsistentRingProvider ringProvider;
-        private readonly int grainTypeCode;
+        private readonly GrainType grainType;
 
         /// <summary>
         /// Currently we only support a single GrainService per Silo, when multiple are supported we will request the number of GrainServices to partition per silo here.
         /// </summary>
         protected GrainServiceClient(IServiceProvider serviceProvider)
         {
-            runtimeClient =  serviceProvider.GetRequiredService<ISiloRuntimeClient>();
             grainFactory = serviceProvider.GetRequiredService<IInternalGrainFactory>();
             ringProvider = serviceProvider.GetRequiredService<IConsistentRingProvider>();
 
             // GrainInterfaceMap only holds IGrain types, not ISystemTarget types, so resolved via Orleans.CodeGeneration.
             // Resolve this before merge.
-            grainTypeCode = GrainInterfaceUtils.GetGrainClassTypeCode(typeof(TGrainService));
+            var grainTypeCode = GrainInterfaceUtils.GetGrainClassTypeCode(typeof(TGrainService));
+            grainType = SystemTargetGrainId.CreateGrainServiceGrainType(grainTypeCode, null);
         }
 
         /// <summary>
@@ -39,12 +38,9 @@ namespace Orleans.Runtime.Services
         {
             get
             {
-                // Currently we only support a single GrainService per Silo, hence we pass zero here instead of partitioning.
-                var grainId = GrainId.GetGrainServiceGrainId(0, grainTypeCode);
-
                 var destination = MapGrainReferenceToSiloRing(CallingGrainReference);
-
-                var grainService = grainFactory.GetSystemTarget<TGrainService>(grainId, destination);
+                var grainId = SystemTargetGrainId.CreateGrainServiceGrainId(grainType, destination);
+                var grainService = grainFactory.GetSystemTarget<TGrainService>(grainId);
 
                 return grainService;
             }

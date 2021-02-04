@@ -399,7 +399,7 @@ namespace UnitTests.Grains
         public Task<string> GetExtendedKeyValue()
         {
             string extKey;
-            var pk = this.GetPrimaryKey(out extKey);
+            _ = this.GetPrimaryKey(out extKey);
             return Task.FromResult(extKey);
         }
 
@@ -504,7 +504,7 @@ namespace UnitTests.Grains
         public Task<string> GetExtendedKeyValue()
         {
             string extKey;
-            var pk = this.GetPrimaryKey(out extKey);
+            _ = this.GetPrimaryKey(out extKey);
             return Task.FromResult(extKey);
         }
 
@@ -878,14 +878,6 @@ namespace UnitTests.Grains
         {
             this.scheduler = scheduler;
         }
-
-        private NonReentrentStressGrainWithoutState(IGrainIdentity identity, IGrainRuntime runtime)
-            : base(identity, runtime)
-        {
-        }
-
-        public static NonReentrentStressGrainWithoutState Create(IGrainIdentity identity, IGrainRuntime runtime)
-            => new NonReentrentStressGrainWithoutState(identity, runtime);
 
         public override Task OnActivateAsync()
         {

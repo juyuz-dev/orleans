@@ -24,13 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="$(MicrosoftAzureCosmosTableVersion)" />
     <PackageReference Include="Azure.Core" Version="$(AzureCoreVersion)" />
     <PackageReference Include="Azure.Storage.Blobs" Version="$(AzureStorageBlobsVersion)" />
-    <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="1.0.7" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Storage\" />
-    <Folder Include="Utilities\" />
+    <PackageReference Include="System.Net.NameResolution" Version="$(SystemNetNameResolutionVersion)" />
   </ItemGroup>
 </Project>

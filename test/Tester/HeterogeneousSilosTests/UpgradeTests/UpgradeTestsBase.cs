@@ -45,7 +45,7 @@ namespace Tester.HeterogeneousSilosTests.UpgradeTests
         private const string VersionTestBinaryName = "TestVersionGrains.dll";
         private readonly DirectoryInfo assemblyGrainsV1Dir;
         private readonly DirectoryInfo assemblyGrainsV2Dir;
-        
+
         private readonly List<SiloHandle> deployedSilos = new List<SiloHandle>();
         private int siloIdx = 0;
         private TestClusterBuilder builder;
@@ -87,10 +87,12 @@ namespace Tester.HeterogeneousSilosTests.UpgradeTests
             }
 
             var files = Directory.GetFiles(directories[0], VersionTestBinaryName, SearchOption.AllDirectories)
-#if NETCOREAPP
+#if NET5_0
+                .Where(f => f.Contains("net5"))
+#elif NETCOREAPP
                 .Where(f => f.Contains("netcoreapp"))
 #else
-                .Where(f => !f.Contains("netcoreapp"))
+                .Where(f => f.Contains("net4"))
 #endif
                 .ToArray();
 
@@ -154,6 +156,7 @@ namespace Tester.HeterogeneousSilosTests.UpgradeTests
             // New activation should be V2
             var grain1 = Client.GetGrain<IVersionUpgradeTestGrain>(1);
             Assert.Equal(2, await grain1.GetVersion());
+            Assert.Equal(1, await grain0.GetVersion());
 
             Assert.Equal(expectedVersion, await grain1.ProxyGetVersion(grain0));
             Assert.Equal(expectedVersion, await grain0.GetVersion());

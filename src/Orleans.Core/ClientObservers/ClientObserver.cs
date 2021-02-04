@@ -7,6 +7,6 @@ namespace Orleans.ClientObservers
 {
     public abstract class ClientObserver
     {
-        public abstract GuidId ObserverId { get; }
+        internal abstract ObserverGrainId GetObserverGrainId(ClientGrainId clientId);
     }
 }
