@@ -13,7 +13,7 @@ namespace Orleans.SqlUtils.StorageProvider.GrainClasses
         public string NickName { get; set; }
         public DateTime BirthDate { get; set; }
         public int Gender { get; set; }
-        public string Country { get; set; }
+        public string CountryRegion { get; set; }
         public string AvatarUrl { get; set; }
         public int KudoPoints { get; set; }
         public int Status { get; set; }

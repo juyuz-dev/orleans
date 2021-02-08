@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Net;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.IdentityModel.Tokens;
 using NSubstitute;
 using Orleans;
 using Orleans.GrainDirectory;
@@ -47,13 +43,14 @@ namespace UnitTests.Directory
             this.grainDirectoryResolver.Directories.Returns(new[] { this.grainDirectory });
             this.localGrainDirectory = Substitute.For<ILocalGrainDirectory>();
             this.mockMembershipService = new MockClusterMembershipService();
-            this.rootContext = new UnitTestSchedulingContext();
-            this.taskScheduler = TestInternalHelper.InitializeSchedulerForTesting(this.rootContext, this.loggerFactory);
-
+            
             this.grainLocator = new CachedGrainLocator(
                 this.grainDirectoryResolver, 
-                new DhtGrainLocator(this.localGrainDirectory, this.taskScheduler, this.rootContext),
-                this.mockMembershipService.Target);
+                new DhtGrainLocator(this.localGrainDirectory),
+                this.mockMembershipService.Target,
+                null,
+                Substitute.For<IServiceProvider>(),
+                Substitute.For<Microsoft.Extensions.Configuration.IConfiguration>());
 
             this.grainLocator.Participate(this.lifecycle);
         }

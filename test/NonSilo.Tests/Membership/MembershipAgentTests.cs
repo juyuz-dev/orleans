@@ -79,7 +79,8 @@ namespace NonSilo.Tests.Membership
                 gossiper: this.membershipGossiper,
                 log: this.loggerFactory.CreateLogger<MembershipTableManager>(),
                 timerFactory: new AsyncTimerFactory(this.loggerFactory),
-                this.lifecycle);
+                this.lifecycle,
+                null);
             ((ILifecycleParticipant<ISiloLifecycle>)this.manager).Participate(this.lifecycle);
 
             this.clusterHealthMonitor = new ClusterHealthMonitor(

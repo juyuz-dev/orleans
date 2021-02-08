@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Orleans.CodeGeneration;
 
 namespace Orleans.Runtime
 {
@@ -36,26 +37,7 @@ namespace Orleans.Runtime
 
         public bool TryGetGrainClassData(Type interfaceType, out GrainClassData implementation, string grainClassNamePrefix)
         {
-            implementation = null;
-            GrainInterfaceData interfaceData;
-
-            // First, try to find a non-generic grain implementation:
-            if (this.typeToInterfaceData.TryGetValue(GrainInterfaceMap.GetTypeKey(interfaceType, false), out interfaceData) &&
-                TryGetGrainClassData(interfaceData, out implementation, grainClassNamePrefix))
-            {
-                return true;
-            }
-
-            // If a concrete implementation was not found and the interface is generic, 
-            // try to find a generic grain implementation:
-            if (interfaceType.IsGenericType &&
-                this.typeToInterfaceData.TryGetValue(GrainInterfaceMap.GetTypeKey(interfaceType, true), out interfaceData) &&
-                TryGetGrainClassData(interfaceData, out implementation, grainClassNamePrefix))
-            {
-                return true;
-            }
-
-            return false;
+            return this.TryGetGrainClassData(GrainInterfaceUtils.GetGrainInterfaceId(interfaceType), out implementation, grainClassNamePrefix);
         }
 
         public bool TryGetGrainClassData(int grainInterfaceId, out GrainClassData implementation, string grainClassNamePrefix = null)
