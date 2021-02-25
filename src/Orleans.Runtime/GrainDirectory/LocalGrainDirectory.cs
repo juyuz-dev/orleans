@@ -24,7 +24,6 @@ namespace Orleans.Runtime.GrainDirectory
         private readonly object writeLock = new object();
         private Action<SiloAddress, SiloStatus> catalogOnSiloRemoved;
         private DirectoryMembership directoryMembership = DirectoryMembership.Default;
-        private readonly ClusterLocalRegistrar localRegistrar;
 
         // Consider: move these constants into an apropriate place
         internal const int HOP_LIMIT = 6; // forward a remote request no more than 5 times
@@ -123,7 +122,6 @@ namespace Orleans.Runtime.GrainDirectory
             }
             
             DirectoryPartition = grainDirectoryPartitionFactory();
-            localRegistrar = new ClusterLocalRegistrar(DirectoryPartition);
             HandoffManager = new GrainDirectoryHandoffManager(this, siloStatusOracle, grainFactory, grainDirectoryPartitionFactory, loggerFactory);
 
             RemoteGrainDirectory = new RemoteGrainDirectory(this, Constants.DirectoryServiceType, loggerFactory);

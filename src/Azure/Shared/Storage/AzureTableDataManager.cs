@@ -756,6 +756,11 @@ namespace Orleans.GrainDirectory.AzureStorage
             try
             {
                 CloudTableClient creationClient = await GetCloudTableClientAsync();
+                if (!string.IsNullOrEmpty(this.StoragePolicyOptions.PreferredRegion))
+                {
+                    creationClient.TableClientConfiguration.CosmosExecutorConfiguration.CurrentRegion = this.StoragePolicyOptions.PreferredRegion;
+                }
+
                 creationClient.DefaultRequestOptions.RetryPolicy = this.StoragePolicyOptions.CreationRetryPolicy;
                 creationClient.DefaultRequestOptions.ServerTimeout = this.StoragePolicyOptions.CreationTimeout;
                 // Values supported can be AtomPub, Json, JsonFullMetadata or JsonNoMetadata with Json being the default value

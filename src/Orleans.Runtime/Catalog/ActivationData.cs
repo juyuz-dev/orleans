@@ -929,8 +929,6 @@ namespace Orleans.Runtime
                 this.DecrementEnqueuedOnDispatcherCount();
             }
         }
-
-        bool IEquatable<IGrainContext>.Equals(IGrainContext other) => ReferenceEquals(this, other);
     }
 
     internal static class StreamResourceTestControl

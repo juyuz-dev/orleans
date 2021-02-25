@@ -62,6 +62,14 @@ namespace Orleans.Runtime
             _key = key;
         }
 
+/*        protected internal GrainReference(GrainReference other, InvokeMethodOptions invokeMethodOptions)
+        {
+            _key = other._key;
+            _shared = other._shared;
+            _shared.InvokeMethodOptions = InvokeMethodOptions;
+
+        }*/
+
         /// <summary>Constructs a reference to the grain with the specified ID.</summary>
         internal static GrainReference FromGrainId(GrainReferenceShared shared, GrainId grainId)
         {

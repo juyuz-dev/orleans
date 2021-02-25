@@ -20,7 +20,8 @@ namespace Orleans.Runtime.MembershipService
             ILocalSiloDetails localSiloDetails,
             ILoggerFactory loggerFactory,
             ILogger<MembershipSystemTarget> log,
-            IInternalGrainFactory grainFactory)
+            IInternalGrainFactory grainFactory,
+            IServiceProvider serviceProvider)
             : base(Constants.MembershipServiceType, localSiloDetails.SiloAddress, loggerFactory)
         {
             this.membershipTableManager = membershipTableManager;

@@ -125,12 +125,6 @@ namespace Orleans.Runtime
             set { Headers.IsTransactionRequired = value; }
         }
 
-        public bool CloseRequested
-        {
-            get { return Headers.CloseRequested; }
-            set { Headers.CloseRequested = value; }
-        }
-
         public CorrelationId Id
         {
             get { return Headers.Id; }

@@ -58,7 +58,7 @@ namespace Orleans.Runtime
     internal interface IActivationData : IGrainContext
     {
         IGrainRuntime Runtime { get; }
-
+        IServiceProvider ServiceProvider { get; }
         void DelayDeactivation(TimeSpan timeSpan);
         void OnTimerCreated(IGrainTimer timer);
         void OnTimerDisposed(IGrainTimer timer);

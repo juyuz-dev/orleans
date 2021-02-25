@@ -161,6 +161,16 @@ namespace Orleans.CodeGeneration
             return GetTypeCode(grainInterface);
         }
 
+        public static ushort GetGrainInterfaceVersion(Type grainInterface)
+        {
+            if (typeof(IGrainExtension).IsAssignableFrom(grainInterface))
+                return 0;
+
+            var attr = grainInterface.GetCustomAttribute<VersionAttribute>();
+            return attr?.Version ?? Constants.DefaultInterfaceVersion;
+        }
+
+
         public static int GetGrainClassTypeCode(Type grainClass)
         {
             return GetTypeCode(grainClass);

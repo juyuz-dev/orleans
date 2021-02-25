@@ -51,6 +51,7 @@
     <SystemNetNameResolutionVersion>4.3.0</SystemNetNameResolutionVersion>
     <SystemReflectionMetadataVersion>5.0.0</SystemReflectionMetadataVersion>
     <SystemValueTupleVersion>4.5.0</SystemValueTupleVersion>
+    <SystemThreadingTasksExtensionsVersion>4.5.4</SystemThreadingTasksExtensionsVersion>
     <SystemReflectionEmitVersion>4.7.0</SystemReflectionEmitVersion>
     <SystemThreadingChannelsVersion>5.0.0</SystemThreadingChannelsVersion>
     <SystemIOPipelinesVersion>5.0.1</SystemIOPipelinesVersion>
