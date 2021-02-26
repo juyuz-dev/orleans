@@ -14,8 +14,6 @@ namespace Orleans.Streaming.AzureStorage
 namespace Orleans.Streaming.EventHubs
 #elif TESTER_AZUREUTILS
 namespace Orleans.Tests.AzureUtils
-#elif ORLEANS_HOSTING_CLOUDSERVICES // Temporary until azure silo/client is refactored
-namespace Orleans.Hosting.AzureCloudServices
 #elif ORLEANS_TRANSACTIONS
 namespace Orleans.Transactions.AzureStorage
 #elif ORLEANS_DIRECTORY
@@ -34,8 +32,8 @@ namespace Orleans.GrainDirectory.AzureStorage
         public int MaxBulkUpdateRows { get; set; } = 100;
         public int MaxCreationRetries { get; set; } = 60;
         public int MaxOperationRetries { get; set; } = 5;
-
         public string PreferredRegion { get; set; } = string.Empty;
+
 
         public TimeSpan PauseBetweenCreationRetries { get; set; } = TimeSpan.FromSeconds(1);
 

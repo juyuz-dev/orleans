@@ -14,17 +14,12 @@
 
   <!-- For test project we still need to target various desktop .Net versions instead of .Net Standard -->
   <PropertyGroup>
-    <TestTargetFrameworks Condition="'$(TestTargetFrameworks)' == ''">netcoreapp3.1;net461</TestTargetFrameworks>
+    <TestTargetFrameworks Condition="'$(TestTargetFrameworks)' == ''">net5.0;netcoreapp3.1;net461</TestTargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
-
-  <!-- Needed for to not to have failed tests because wrong binding redirects were generated for older packages -->
-  <ItemGroup>
-    <PackageReference Include="System.Net.Http" Version="$(SystemNetHttpVersion)" />
-  </ItemGroup>
 
   <!-- All .NET Framework projects should link to the reference assemblies package so that .NET Targeting Packs are not needed -->
   <ItemGroup Condition="$(TargetFramework.StartsWith('net')) and !$(TargetFramework.StartsWith('netcore')) and !$(TargetFramework.StartsWith('netstandard'))" >

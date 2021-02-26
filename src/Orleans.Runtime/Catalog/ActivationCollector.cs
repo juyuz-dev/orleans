@@ -319,7 +319,7 @@ namespace Orleans.Runtime
                 condemned.Add(activation);
             }
 
-            this.Debug_OnDecideToCollectActivation?.Invoke(activation.Grain);
+            this.Debug_OnDecideToCollectActivation?.Invoke(activation.GrainId);
         }
 
         private static void ThrowIfTicketIsInvalid(DateTime ticket, TimeSpan quantum)
@@ -418,8 +418,7 @@ namespace Orleans.Runtime
             public bool TryRemove(ActivationData item)
             {
                 if (!item.TrySetCollectionCancelledFlag()) return false;
-
-                return items.TryRemove(item.ActivationId, out ActivationData unused);
+                return items.TryRemove(item.ActivationId, out _);
             }
 
             public IEnumerable<ActivationData> CancelAll()

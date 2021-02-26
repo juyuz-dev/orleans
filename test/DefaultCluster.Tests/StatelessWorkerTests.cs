@@ -34,7 +34,8 @@ namespace DefaultCluster.Tests.General
 
             for (int i=0; i<100; i++)
             {
-                await Assert.ThrowsAsync<OrleansException>(() => grain.Ping());
+                var ex = await Assert.ThrowsAsync<Exception>(() => grain.Ping());
+                Assert.Equal("oops", ex.Message);
             }
         }
 
@@ -93,6 +94,20 @@ namespace DefaultCluster.Tests.General
                 }
 
                 Assert.True(activations.Count <= ExpectedMaxLocalActivations, $"activations.Count = {activations.Count} in silo {silo} but expected no more than {ExpectedMaxLocalActivations}");
+            }
+        }
+
+        [Fact, TestCategory("SlowBVT"), TestCategory("Functional"), TestCategory("StatelessWorker")]
+        public async Task ManyConcurrentInvocationsOnActivationLimitedStatelessWorkerDoesNotFail()
+        {
+            // Issue #6795: significantly more concurrent invocations than the local worker limit results in too many
+            // message forwards. When the issue occurs, this test will throw an exception.
+
+            // We are trying to trigger a race condition and need more than 1 attempt to reliably reproduce the issue.
+            for (var attempt = 0; attempt < 100; attempt ++)
+            {
+                var grain = this.GrainFactory.GetGrain<IStatelessWorkerGrain>(attempt);
+                await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => grain.DummyCall()));
             }
         }
 

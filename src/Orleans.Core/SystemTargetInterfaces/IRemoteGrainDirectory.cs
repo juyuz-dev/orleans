@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 using Orleans.GrainDirectory;
-using Orleans.Runtime.Configuration;
 
 namespace Orleans.Runtime
 {
@@ -11,7 +9,6 @@ namespace Orleans.Runtime
     {
         SiloAddress SiloAddress { get; }
         DateTime TimeCreated { get; }
-        GrainDirectoryEntryStatus RegistrationStatus { get; set; }
         bool OkToRemove(UnregistrationCause cause, TimeSpan lazyDeregistrationDelay);
     }
 
@@ -21,7 +18,7 @@ namespace Orleans.Runtime
         int VersionTag { get; }
         bool SingleInstance { get; }
         bool AddActivation(ActivationId act, SiloAddress silo);
-        ActivationAddress AddSingleActivation(GrainId grain, ActivationId act, SiloAddress silo, GrainDirectoryEntryStatus registrationStatus);
+        ActivationAddress AddSingleActivation(GrainId grain, ActivationId act, SiloAddress silo);
         bool RemoveActivation(ActivationId act, UnregistrationCause cause, TimeSpan lazyDeregistrationDelay, out IActivationInfo entry, out bool wasRemoved);
 
         /// <summary>
@@ -31,8 +28,6 @@ namespace Orleans.Runtime
         /// <param name="other"></param>
         /// <returns>A map of activations which must be deactivated, grouped by silo.</returns>
         Dictionary<SiloAddress, List<ActivationAddress>> Merge(GrainId grain, IGrainInfo other);
-        void CacheOrUpdateRemoteClusterRegistration(GrainId grain, ActivationId oldActivation, ActivationId activation, SiloAddress silo);
-        bool UpdateClusterRegistrationStatus(ActivationId activationId, GrainDirectoryEntryStatus registrationStatus, GrainDirectoryEntryStatus? compareWith = null);
     }
 
     /// <summary>
@@ -59,16 +54,6 @@ namespace Orleans.Runtime
         /// If the generation number of the invoker matches the number of the destination, the list is null. If the destination does not
         /// hold the information on the grain, generation counter -1 is returned (and the list of activations is null)</returns>
         Task<List<Tuple<GrainId, int, List<ActivationAddress>>>> LookUpMany(List<Tuple<GrainId, int>> grainAndETagList);
-
-        /// <summary>
-        /// Handoffs the directory partition from source silo to the destination silo.
-        /// </summary>
-        /// <param name="source">The address of the owner of the partition.</param>
-        /// <param name="partition">The (full or partial) copy of the directory partition to be Haded off.</param>
-        /// <param name="isFullCopy">Flag specifying whether it is a full copy of the directory partition (and thus any old copy should be just replaced) or the
-        /// a delta copy (and thus the old copy should be updated by delta changes) </param>
-        /// <returns></returns>
-        Task AcceptHandoffPartition(SiloAddress source, Dictionary<GrainId, IGrainInfo> partition, bool isFullCopy);
 
         /// <summary>
         /// Removes the handed off directory partition from source silo on the destination silo.

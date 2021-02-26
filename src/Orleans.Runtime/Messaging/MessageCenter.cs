@@ -3,6 +3,7 @@ using System.Threading;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Orleans.Configuration;
+using Orleans.Runtime.GrainDirectory;
 
 namespace Orleans.Runtime.Messaging
 {
@@ -21,17 +22,15 @@ namespace Orleans.Runtime.Messaging
         private readonly ConnectionManager senderManager;
         private readonly MessagingTrace messagingTrace;
         private SiloMessagingOptions messagingOptions;
-        private IncomingMessageHandler messageHandler;
+        private Dispatcher dispatcher;
 
         internal bool IsBlockingApplicationMessages { get; private set; }
 
         public void SetHostedClient(HostedClient client) => this.hostedClient = client;
 
-        public bool IsProxying => this.Gateway != null || this.hostedClient?.ClientId != null;
-
         public bool TryDeliverToProxy(Message msg)
         {
-            if (msg.TargetGrain is null || !msg.TargetGrain.IsClient) return false;
+            if (!msg.TargetGrain.IsClient()) return false;
             if (this.Gateway is Gateway gateway && gateway.TryDeliverToProxy(msg)) return true;
             return this.hostedClient is HostedClient client && client.TryDispatchToClient(msg);
         }
@@ -45,7 +44,6 @@ namespace Orleans.Runtime.Messaging
             MessageFactory messageFactory,
             Factory<MessageCenter, Gateway> gatewayFactory,
             ILoggerFactory loggerFactory,
-            IOptions<StatisticsOptions> statisticsOptions,
             ISiloStatusOracle siloStatusOracle,
             ConnectionManager senderManager,
             MessagingTrace messagingTrace)
@@ -76,10 +74,10 @@ namespace Orleans.Runtime.Messaging
             OutboundQueue.Start();
         }
 
-        public void StartGateway(ClientObserverRegistrar clientRegistrar)
+        public void StartGateway()
         {
             if (Gateway != null)
-                Gateway.Start(clientRegistrar);
+                Gateway.Start();
         }
 
         private void WaitToRerouteAllQueuedMessages()
@@ -137,7 +135,7 @@ namespace Orleans.Runtime.Messaging
 
         public void OnReceivedMessage(Message message)
         {
-            var handler = this.messageHandler;
+            var handler = this.dispatcher;
             if (handler is null)
             {
                 ThrowNullMessageHandler();
@@ -175,7 +173,7 @@ namespace Orleans.Runtime.Messaging
         {
             // Note that if we identify or add other grains that are required for proper stopping, we will need to treat them as we do the membership table grain here.
             if (IsBlockingApplicationMessages && (msg.Category == Message.Categories.Application) && (msg.Result != Message.ResponseTypes.Rejection)
-                && !Constants.SystemMembershipTableId.Equals(msg.TargetGrain))
+                && !Constants.SystemMembershipTableType.Equals(msg.TargetGrain))
             {
                 // Drop the message on the floor if it's an application message that isn't a rejection
                 this.messagingTrace.OnDropBlockedApplicationMessage(msg);
@@ -220,16 +218,14 @@ namespace Orleans.Runtime.Messaging
             }
         }
 
-        public void RegisterLocalMessageHandler(IncomingMessageHandler handler)
+        public void SetDispatcher(Dispatcher dispatcher)
         {
-            this.messageHandler = handler;
+            this.dispatcher = dispatcher;
         }
 
         public void Dispose()
         {
             OutboundQueue?.Dispose();
-
-            GC.SuppressFinalize(this);
         }
 
         public int SendQueueLength { get { return OutboundQueue.GetCount(); } }

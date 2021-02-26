@@ -4,16 +4,13 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.PlatformAbstractions;
 using Microsoft.OpenApi.Models;
-using Newtonsoft.Json;
 using OneBoxDeployment.Api.Filters;
 using OneBoxDeployment.Api.Logging;
 using OneBoxDeployment.Common;
@@ -26,12 +23,12 @@ using Orleans.Statistics;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Security.Principal;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 
@@ -147,17 +144,10 @@ namespace OneBoxDeployment.Api
                     options.Conventions.Add(new NotFoundResultFilterConvention());
 
                     //The Content-Security-Policy (CSP) is JSON, so it's added here to the known JSON serialized types.
-                    const string MimeTypeCspReport = "application/csp-report";
-                    var jsonOutputFormatter = options.OutputFormatters.OfType<SystemTextJsonOutputFormatter>().FirstOrDefault();
-                    if(jsonOutputFormatter != null)
-                    {
-                        jsonOutputFormatter.SupportedMediaTypes.Add(MimeTypeCspReport);
-                    }
-
                     var jsonInputFormatter = options.InputFormatters.OfType<SystemTextJsonInputFormatter>().FirstOrDefault();
                     if(jsonInputFormatter != null)
                     {
-                        jsonInputFormatter.SupportedMediaTypes.Add(MimeTypeCspReport);
+                        jsonInputFormatter.SupportedMediaTypes.Add(MimeTypes.MimeTypeCspReport);
                     }
                 })
                 .AddApiExplorer()
@@ -170,7 +160,6 @@ namespace OneBoxDeployment.Api
             services.AddSwaggerGen(openApiConfig =>
             {
                 openApiConfig.DescribeAllParametersInCamelCase();
-                openApiConfig.OperationFilter<BadRequestProblemDetailOpenApiFilterAttribute>();
 
                 //In the Swagger document this corresponds as follows:
                 //http://localhost:4003/{SwaggerRoot}/{SwaggerDocumentationBasePath}/swagger.json
@@ -202,10 +191,9 @@ namespace OneBoxDeployment.Api
 
                 //The name of the comments file (see project properties). This is set automatically to the name
                 //of the project unless explicitly changed.
-                string commentsFilename = $"{Assembly.GetAssembly(typeof(Startup)).GetName().Name}.xml";
-                string fullCommentsFilePath = Path.Combine(PlatformServices.Default.Application.ApplicationBasePath,
-                    commentsFilename);
-                openApiConfig.IncludeXmlComments(fullCommentsFilePath);
+                string commentsFilename = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+                string fullCommentsFilePath = Path.Combine(AppContext.BaseDirectory, commentsFilename);
+                openApiConfig.IncludeXmlComments(fullCommentsFilePath, includeControllerXmlComments: true);
             });
 
             services.AddHttpContextAccessor();
@@ -218,7 +206,9 @@ namespace OneBoxDeployment.Api
             var clusterConfigValue = Configuration.GetSection(nameof(ClusterConfig));
             if(clusterConfigValue?.Value != null)
             {
-                clusterConfig = JsonConvert.DeserializeObject<ClusterConfig>(clusterConfigValue.Value, new IPAddressConverter());
+                var deserializeOptions = new JsonSerializerOptions();
+                deserializeOptions.Converters.Add(new IPAddressConverter());
+                clusterConfig = JsonSerializer.Deserialize<ClusterConfig>(clusterConfigValue.Value, deserializeOptions);
             }
             else
             {
@@ -247,6 +237,7 @@ namespace OneBoxDeployment.Api
             var client = clientBuilder.Build();
             client.Connect(async ex =>
             {
+                Logger.LogWarning("Could not connect to Orleans cluster: {exception}", ex);
                 await Task.Delay(TimeSpan.FromMilliseconds(300)).ConfigureAwait(false);
                 return true;
             }).GetAwaiter().GetResult();
@@ -269,8 +260,11 @@ namespace OneBoxDeployment.Api
         /// <param name="applicationLifetime"></param>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IHostApplicationLifetime applicationLifetime)
         {
+            app.UseProblemDetails();
             if(!env.IsProduction())
             {
+                //This test middleware needs to be before developer exception pages.
+                app.Use(TestMiddleware);
                 app.UseDeveloperExceptionPage();
             }
 
@@ -296,10 +290,19 @@ namespace OneBoxDeployment.Api
             if(!env.IsProduction())
             {
                 //Creates a route to specifically throw and unhandled exception. This route is most likely injected only in testing.
+                //This kind of testing middleware can be made to one code block guarded appropriately if there is more of it.
                 var alwaysFaultyRoute = Configuration.GetValue<string>(ConfigurationKeys.AlwaysFaultyRoute, null);
                 if(alwaysFaultyRoute != null)
                 {
-                    app.Map(alwaysFaultyRoute, routeBuilder => routeBuilder.Run(context => throw new Exception($"Fault injected route for testing ({context.Request.PathBase}/{context.Request.PathBase}).")));
+                    app.Use((context, next) =>
+                    {
+                        if(context.Request.Path.StartsWithSegments($"/{alwaysFaultyRoute}", out _, out _))
+                        {
+                            throw new Exception($"Fault injected route for testing ({context.Request.PathBase}/{alwaysFaultyRoute}).");
+                        }
+
+                        return next();
+                    });
                 }
             }
 
@@ -372,7 +375,6 @@ namespace OneBoxDeployment.Api
             }
 
             app.UseCors("CorsPolicy");
-            app.UseProblemDetails();
             app.UseStaticFiles();
             app.UseRouting();
             //app.UseAuthorization();
@@ -383,29 +385,41 @@ namespace OneBoxDeployment.Api
         private void ConfigureProblemDetails(ProblemDetailsOptions options)
         {
             // This is the default behavior; only include exception details in a development environment.
-            options.IncludeExceptionDetails = ctx => Environment.IsDevelopment();
+            options.IncludeExceptionDetails = (ctx, ex) => Environment.IsDevelopment();
 
-            options.OnBeforeWriteDetails = (ctx, details) =>
-            {
-                var identifier = Guid.NewGuid().ToString();
-                ctx.TraceIdentifier = identifier;
-                details.Instance = $"urn:oneboxdeployment:error:{identifier}";
-            };
+            options.OnBeforeWriteDetails = (ctx, details) => details.Instance = $"urn:oneboxdeployment:error:{ctx.TraceIdentifier}";
+
+            // You can configure the middleware to re-throw certain types of exceptions, all exceptions or based on a predicate.
+            // This is useful if you have upstream middleware that needs to do additional handling of exceptions.
+            options.Rethrow<NotSupportedException>();
 
             // This will map NotImplementedException to the 501 Not Implemented status code.
-            options.Map<NotImplementedException>(ex => new ExceptionProblemDetails(ex, StatusCodes.Status501NotImplemented));
+            options.MapToStatusCode<NotImplementedException>(StatusCodes.Status501NotImplemented);
 
             // This will map HttpRequestException to the 503 Service Unavailable status code.
-            options.Map<HttpRequestException>(ex => new ExceptionProblemDetails(ex, StatusCodes.Status503ServiceUnavailable));
-
-            options.Map<ValidationException>(ex => new ExceptionProblemDetails(ex, StatusCodes.Status400BadRequest)
-            {
-                Title = "Hep!"
-            });
+            options.MapToStatusCode<HttpRequestException>(StatusCodes.Status503ServiceUnavailable);
 
             // Because exceptions are handled polymorphically, this will act as a "catch all" mapping, which is why it's added last.
             // If an exception other than NotImplementedException and HttpRequestException is thrown, this will handle it.
-            options.Map<Exception>(ex => new ExceptionProblemDetails(ex, StatusCodes.Status500InternalServerError));
+            options.MapToStatusCode<Exception>(StatusCodes.Status500InternalServerError);
+        }
+
+
+        /// <summary>
+        /// This middleware should be used only when testing.
+        /// </summary>
+        /// <param name="context">The call context.</param>
+        /// <param name="next">Function to call next middlware in the pipeline.</param>
+        private Task TestMiddleware(HttpContext context, Func<Task> next)
+        {
+            //Creates a route to specifically throw and unhandled exception. This route is most likely injected only in testing.
+            var alwaysFaultyRoute = Configuration.GetValue<string>(ConfigurationKeys.AlwaysFaultyRoute, null);
+            if(alwaysFaultyRoute != null && context.Request.Path.StartsWithSegments(alwaysFaultyRoute, out _, out _))
+            {
+                throw new Exception("This is an exception thrown from middleware.");
+            }
+
+            return next();
         }
     }
 }

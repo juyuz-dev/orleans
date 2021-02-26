@@ -3,6 +3,7 @@ using System;
 
 namespace Orleans.Runtime
 {
+/*
     /// <summary>
     /// Represents a grain from the perpsective of the runtime.
     /// </summary>
@@ -21,5 +22,5 @@ namespace Orleans.Runtime
         void DelayDeactivation(TimeSpan timeSpan);
         void OnTimerCreated(IGrainTimer timer);
         void OnTimerDisposed(IGrainTimer timer);
-    }
+    }*/
 }

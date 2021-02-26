@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Runtime.Serialization;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Orleans.Serialization;
 using Orleans.TestingHost.Logging;
@@ -15,6 +16,8 @@ namespace Orleans.TestingHost.Utils
     /// <summary> Collection of test utilities </summary>
     public static class TestingUtils
     {
+        private static long uniquifier = Stopwatch.GetTimestamp();
+
         /// <summary>
         /// Configure <paramref name="builder"/> with a <see cref="FileLoggerProvider"/> which logs to <paramref name="filePath"/>
         /// by default;
@@ -41,7 +44,7 @@ namespace Orleans.TestingHost.Utils
                 Directory.CreateDirectory(traceFileFolder);
             }
 
-            var traceFileName = Path.Combine(traceFileFolder, $"{clusterId}_{nodeName}.log");
+            var traceFileName = Path.Combine(traceFileFolder, $"{clusterId}_{Interlocked.Increment(ref uniquifier):X}_{nodeName}.log");
 
             return traceFileName;
         }
@@ -123,24 +126,6 @@ namespace Orleans.TestingHost.Utils
             ServicePointManager.Expect100Continue = false;
             ServicePointManager.DefaultConnectionLimit = numDotNetPoolThreads; // 1000;
             ServicePointManager.UseNagleAlgorithm = false;
-        }
-
-        /// <summary> Serialize and deserialize the input </summary>
-        /// <typeparam name="T">The type of the input</typeparam>
-        /// <param name="input">The input to serialize and deserialize</param>
-        /// <param name="grainFactory">The grain factory.</param>
-        /// <param name="serializationManager">The serialization manager.</param>
-        /// <returns>Input that have been serialized and then deserialized</returns>
-        public static T RoundTripDotNetSerializer<T>(T input, IGrainFactory grainFactory, SerializationManager serializationManager)
-        {
-            IFormatter formatter = new BinaryFormatter();
-            MemoryStream stream = new MemoryStream(new byte[100000], true);
-            formatter.Context = new StreamingContext(StreamingContextStates.All, new SerializationContext(serializationManager));
-            formatter.Serialize(stream, input);
-            stream.Position = 0;
-            T output = (T)formatter.Deserialize(stream);
-
-            return output;
         }
     }
 }

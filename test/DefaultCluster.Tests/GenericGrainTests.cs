@@ -72,30 +72,23 @@ namespace DefaultCluster.Tests.General
         }
 
         /// Can instantiate generic grain specializations
-        [Fact, TestCategory("BVT"), TestCategory("Generics")]
-        public async Task GenericGrainTests_SimpleGenericGrainGetGrain()
+        [Theory, TestCategory("BVT"), TestCategory("Generics")]
+        [InlineData(1.2f)]
+        [InlineData(3.4f)]
+        [InlineData("5.6")]
+        public async Task GenericGrainTests_SimpleGenericGrainGetGrain<T>(T setValue)
         {
 
-            var grainOfFloat1 = GetGrain<ISimpleGenericGrain<float>>();
-            var grainOfFloat2 = GetGrain<ISimpleGenericGrain<float>>();
-            var grainOfString = GetGrain<ISimpleGenericGrain<string>>();
+            var grain = GetGrain<ISimpleGenericGrain<T>>();
 
-            await grainOfFloat1.Set(1.2f);
-            await grainOfFloat2.Set(3.4f);
-            await grainOfString.Set("5.6");
+            await grain.Set(setValue);
 
             // generic grain implementation does not change the set value:
-            await grainOfFloat1.Transform();
-            await grainOfFloat2.Transform();
-            await grainOfString.Transform();
-
-            var floatResult1 = await grainOfFloat1.Get();
-            var floatResult2 = await grainOfFloat2.Get();
-            var stringResult = await grainOfString.Get();
-
-            Assert.Equal(1.2f, floatResult1);
-            Assert.Equal(3.4f, floatResult2);
-            Assert.Equal("5.6", stringResult);
+            await grain.Transform();
+            
+            T result = await grain.Get();
+            
+            Assert.Equal(setValue, result);            
         }
 
         /// Can instantiate grains that implement generic interfaces with generic type parameters
@@ -568,7 +561,7 @@ namespace DefaultCluster.Tests.General
 
             var id = Guid.NewGuid();
             var nonGenericFacet =  this.GrainFactory.GetGrain<INonGenericBase>(id, "UnitTests.Grains.Generic1ArgumentGrain");
-            await Assert.ThrowsAsync<OrleansException>(async () =>
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
             {
                 try
                 {
@@ -590,7 +583,7 @@ namespace DefaultCluster.Tests.General
             var s2 = await grain.Ping(s1);
             Assert.Equal(s1, s2);
             var nonGenericFacet =  this.GrainFactory.GetGrain<INonGenericBase>(id, "UnitTests.Grains.Generic1ArgumentGrain");
-            await Assert.ThrowsAsync<OrleansException>(async () =>
+            await Assert.ThrowsAsync<ArgumentException>(async () =>
             {
                 try
                 {
@@ -667,7 +660,7 @@ namespace DefaultCluster.Tests.General
         {
             var grainId = Guid.NewGuid();
             var grain =  this.GrainFactory.GetGrain<ICircularStateTestGrain>(primaryKey: grainId, keyExtension: grainId.ToString("N"));
-            var c1 = await grain.GetState();
+            _ = await grain.GetState();
         }
                 
         [Fact, TestCategory("BVT"), TestCategory("Generics")]
@@ -972,7 +965,7 @@ namespace DefaultCluster.Tests.General
 
                 await grain.Hello();
 
-                var castRef = grain.AsReference<IInterfaceUnrelatedToConcreteGenArgs<float>>();
+                _ = grain.AsReference<IInterfaceUnrelatedToConcreteGenArgs<float>>();
 
                 var response = await grain.Hello();
 
@@ -984,7 +977,7 @@ namespace DefaultCluster.Tests.General
             public async Task Generic_CanCastToFullySpecifiedInterfaceUnrelatedToConcreteGenArgs_Activating() {
                 var grain =  this.GrainFactory.GetGrain<IArbitraryInterface<int, long>>(Guid.NewGuid());
 
-                var castRef = grain.AsReference<IInterfaceUnrelatedToConcreteGenArgs<float>>();
+                _ = grain.AsReference<IInterfaceUnrelatedToConcreteGenArgs<float>>();
 
                 var response = await grain.Hello();
 
@@ -1021,8 +1014,7 @@ namespace DefaultCluster.Tests.General
                 var grain =  this.GrainFactory.GetGrain<IAnotherReceivingFurtherSpecializedGenArg<List<int>>>(Guid.NewGuid());
 
                 await grain.Hello();
-
-                var castRef = grain.AsReference<IYetOneMoreReceivingFurtherSpecializedGenArg<int[]>>();
+                _ = grain.AsReference<IYetOneMoreReceivingFurtherSpecializedGenArg<int[]>>();
 
                 var response = await grain.Hello();
 
@@ -1033,8 +1025,7 @@ namespace DefaultCluster.Tests.General
             [Fact(Skip = "Currently unsupported"), TestCategory("Generics")]
             public async Task Generic_CanCastBetweenInterfacesWithFurtherSpecializedGenArgs_Activating() {
                 var grain =  this.GrainFactory.GetGrain<IAnotherReceivingFurtherSpecializedGenArg<List<int>>>(Guid.NewGuid());
-
-                var castRef = grain.AsReference<IYetOneMoreReceivingFurtherSpecializedGenArg<int[]>>();
+                _ = grain.AsReference<IYetOneMoreReceivingFurtherSpecializedGenArg<int[]>>();
 
                 var response = await grain.Hello();
 

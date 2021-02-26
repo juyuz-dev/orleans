@@ -24,14 +24,10 @@
   <ItemGroup>
     <PackageReference Include="Azure.Core" Version="$(AzureCoreVersion)" />
     <PackageReference Include="Microsoft.Azure.Cosmos.Table" Version="$(MicrosoftAzureCosmosTableVersion)" />
+    <PackageReference Include="System.Net.NameResolution" Version="$(SystemNetNameResolutionVersion)" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Orleans.Transactions\Orleans.Transactions.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Storage\" />
-    <Folder Include="Utilities\" />
   </ItemGroup>
 </Project>

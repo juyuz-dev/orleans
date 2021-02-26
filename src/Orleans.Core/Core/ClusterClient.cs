@@ -20,6 +20,7 @@ namespace Orleans
     internal class ClusterClient : IInternalClusterClient
     {
         private readonly OutsideRuntimeClient runtimeClient;
+        private readonly ILogger<ClusterClient> logger;
         private readonly ClusterClientLifecycle clusterClientLifecycle;
         private readonly AsyncLock initLock = new AsyncLock();
         private readonly ClientApplicationLifetime applicationLifetime;
@@ -44,6 +45,7 @@ namespace Orleans
         public ClusterClient(OutsideRuntimeClient runtimeClient, ILoggerFactory loggerFactory, IOptions<ClientMessagingOptions> clientMessagingOptions)
         {
             this.runtimeClient = runtimeClient;
+            this.logger = loggerFactory.CreateLogger<ClusterClient>();
             this.clusterClientLifecycle = new ClusterClientLifecycle(loggerFactory.CreateLogger<LifecycleSubject>());
 
             //set PropagateActivityId flag from node config
@@ -51,14 +53,14 @@ namespace Orleans
 
             // register all lifecycle participants
             IEnumerable<ILifecycleParticipant<IClusterClientLifecycle>> lifecycleParticipants = this.ServiceProvider.GetServices<ILifecycleParticipant<IClusterClientLifecycle>>();
-            foreach (ILifecycleParticipant<IClusterClientLifecycle> participant in lifecycleParticipants)
+            foreach (var participant in lifecycleParticipants)
             {
                 participant?.Participate(clusterClientLifecycle);
             }
 
             // register all named lifecycle participants
             IKeyedServiceCollection<string, ILifecycleParticipant<IClusterClientLifecycle>> namedLifecycleParticipantCollections = this.ServiceProvider.GetService<IKeyedServiceCollection<string, ILifecycleParticipant<IClusterClientLifecycle>>>();
-            foreach (ILifecycleParticipant<IClusterClientLifecycle> participant in namedLifecycleParticipantCollections
+            foreach (var participant in namedLifecycleParticipantCollections
                 ?.GetServices(this.ServiceProvider)
                 ?.Select(s => s?.GetService(this.ServiceProvider)))
             {
@@ -94,8 +96,13 @@ namespace Orleans
         /// <summary>
         /// Gets a value indicating whether or not this instance is being disposed.
         /// </summary>
-        private bool IsDisposing => this.state == LifecycleState.Disposed ||
-                                    this.state == LifecycleState.Disposing;
+        private bool IsDisposing => this.state switch
+        {
+            LifecycleState.Disposing => true,
+            LifecycleState.Disposed => true,
+            LifecycleState.Invalid => true,
+            _ => false
+        };
 
         /// <inheritdoc />
         public IStreamProvider GetStreamProvider(string name)
@@ -146,6 +153,8 @@ namespace Orleans
                 if (this.state == LifecycleState.Disposed) return;
                 try
                 {
+                    logger.LogInformation("Client shutting down");
+
                     this.state = LifecycleState.Disposing;
                     CancellationToken canceled = CancellationToken.None;
                     if (!gracefully)
@@ -158,9 +167,12 @@ namespace Orleans
                     await this.clusterClientLifecycle.OnStop(canceled).ConfigureAwait(false);
 
                     this.runtimeClient?.Reset(gracefully);
+                    this.state = LifecycleState.Disposed;
                 }
                 finally
                 {
+                    logger.LogInformation("Client shutdown completed");
+
                     // If disposal failed, the system is in an invalid state.
                     if (this.state == LifecycleState.Disposing) this.state = LifecycleState.Invalid;
                 }
@@ -260,12 +272,6 @@ namespace Orleans
         }
 
         /// <inheritdoc />
-        public void BindGrainReference(IAddressable grain)
-        {
-            this.InternalGrainFactory.BindGrainReference(grain);
-        }
-
-        /// <inheritdoc />
         public TGrainObserverInterface CreateObjectReference<TGrainObserverInterface>(IAddressable obj)
             where TGrainObserverInterface : IAddressable
         {
@@ -273,9 +279,14 @@ namespace Orleans
         }
 
         /// <inheritdoc />
-        TGrainInterface IInternalGrainFactory.GetSystemTarget<TGrainInterface>(GrainId grainId, SiloAddress destination)
+        TGrainInterface IInternalGrainFactory.GetSystemTarget<TGrainInterface>(GrainType grainType, SiloAddress destination)
         {
-            return this.InternalGrainFactory.GetSystemTarget<TGrainInterface>(grainId, destination);
+            return this.InternalGrainFactory.GetSystemTarget<TGrainInterface>(grainType, destination);
+        }
+
+        public TGrainInterface GetSystemTarget<TGrainInterface>(GrainId grainId) where TGrainInterface : ISystemTarget
+        {
+            return this.InternalGrainFactory.GetSystemTarget<TGrainInterface>(grainId);
         }
 
         /// <inheritdoc />
@@ -285,15 +296,15 @@ namespace Orleans
         }
 
         /// <inheritdoc />
-        TGrainInterface IInternalGrainFactory.GetGrain<TGrainInterface>(GrainId grainId)
+        TGrainInterface IGrainFactory.GetGrain<TGrainInterface>(GrainId grainId)
         {
             return this.InternalGrainFactory.GetGrain<TGrainInterface>(grainId);
         }
 
         /// <inheritdoc />
-        GrainReference IInternalGrainFactory.GetGrain(GrainId grainId, string genericArguments)
+        IAddressable IGrainFactory.GetGrain(GrainId grainId)
         {
-            return this.InternalGrainFactory.GetGrain(grainId, genericArguments);
+            return this.InternalGrainFactory.GetGrain(grainId);
         }
 
         private void ThrowIfDisposedOrNotInitialized()
@@ -315,26 +326,6 @@ namespace Orleans
                 throw new ObjectDisposedException(nameof(ClusterClient), "Client has been disposed.");
             }
         }
-
-        /// <inheritdoc />
-        public TGrainInterface GetGrain<TGrainInterface>(Type grainInterfaceType, Guid grainPrimaryKey) where TGrainInterface : IGrain
-            => this.InternalGrainFactory.GetGrain<TGrainInterface>(grainInterfaceType, grainPrimaryKey);
-
-        /// <inheritdoc />
-        public TGrainInterface GetGrain<TGrainInterface>(Type grainInterfaceType, long grainPrimaryKey) where TGrainInterface : IGrain
-            => this.InternalGrainFactory.GetGrain<TGrainInterface>(grainInterfaceType, grainPrimaryKey);
-
-        /// <inheritdoc />
-        public TGrainInterface GetGrain<TGrainInterface>(Type grainInterfaceType, string grainPrimaryKey) where TGrainInterface : IGrain
-            => this.InternalGrainFactory.GetGrain<TGrainInterface>(grainInterfaceType, grainPrimaryKey);
-
-        /// <inheritdoc />
-        public TGrainInterface GetGrain<TGrainInterface>(Type grainInterfaceType, Guid grainPrimaryKey, string keyExtension) where TGrainInterface : IGrain
-            => this.InternalGrainFactory.GetGrain<TGrainInterface>(grainInterfaceType, grainPrimaryKey, keyExtension);
-
-        /// <inheritdoc />
-        public TGrainInterface GetGrain<TGrainInterface>(Type grainInterfaceType, long grainPrimaryKey, string keyExtension) where TGrainInterface : IGrain
-            => this.InternalGrainFactory.GetGrain<TGrainInterface>(grainInterfaceType, grainPrimaryKey, keyExtension);
 
         /// <inheritdoc />
         public IGrain GetGrain(Type grainInterfaceType, string grainPrimaryKey)
@@ -359,5 +350,8 @@ namespace Orleans
         /// <inheritdoc />
         public object Cast(IAddressable grain, Type outputGrainInterfaceType)
             => this.InternalGrainFactory.Cast(grain, outputGrainInterfaceType);
+
+        public IAddressable GetGrain(GrainId grainId, GrainInterfaceType interfaceType)
+            => this.InternalGrainFactory.GetGrain(grainId, interfaceType);
     }
 }

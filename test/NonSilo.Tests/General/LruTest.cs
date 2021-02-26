@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using System.Threading.Tasks;
 using Orleans.Runtime;
 using Xunit;
 
@@ -72,8 +73,7 @@ namespace UnitTests
             for (var i = maxSize; i >= 1; i--)
             {
                 var s = i.ToString();
-                string val;
-                target.TryGetValue(s, out val);
+                target.TryGetValue(s, out _);
             }
             
             // Add a new item to push the least recently used out -- which should be item "10"
@@ -88,6 +88,39 @@ namespace UnitTests
                 var s = i.ToString();
                 Assert.True(target.ContainsKey(s), "Recently used item " + s + " was incorrectly expelled");
             }
+        }
+
+        [Fact, TestCategory("BVT"), TestCategory("LRU")]
+        public async Task LruRemoveExpired()
+        {
+            const int n = 10;
+            const int maxSize = n*2;
+            var maxAge = TimeSpan.FromMilliseconds(500);
+            LRU<string, string>.FetchValueDelegate f = null;
+            var flushCounter = 0;
+
+            var target = new LRU<string, string>(maxSize, maxAge, f);
+            target.RaiseFlushEvent += (object o, LRU<string, string>.FlushEventArgs args) => flushCounter++;
+
+            for (int i = 0; i < n; i++)
+            {
+                var s = i.ToString();
+                target.Add(s, $"item {s}");
+            }
+
+            target.RemoveExpired();
+            Assert.Equal(0, flushCounter);
+            Assert.Equal(n, target.Count);
+
+            await Task.Delay(maxAge.Add(maxAge));
+
+            target.Add("expected", "value");
+            target.RemoveExpired();
+
+            Assert.Equal(n, flushCounter);
+            Assert.Equal(1, target.Count);
+            Assert.True(target.TryGetValue("expected", out var value));
+            Assert.Equal("value", value);
         }
     }
 }

@@ -1,11 +1,13 @@
 using System.Threading.Tasks;
 using Orleans;
+using Orleans.Metadata;
 using Orleans.Runtime;
 using UnitTests.GrainInterfaces;
 using UnitTests.Grains;
 
 namespace UnitTests.PersistentState.Grains
 {
+    [GrainType("new-test-storage-grain")]
     public class GrainStorageTestGrain : Grain,
         IGrainStorageTestGrain, IGrainStorageTestGrain_LongKey
     {
@@ -42,6 +44,7 @@ namespace UnitTests.PersistentState.Grains
     }
 
     [Orleans.Providers.StorageProvider(ProviderName = "GrainStorageForTest")]
+    [GrainType("new-test-storage-grain-with-extended-key")]
     public class GrainStorageTestGrainExtendedKey : Grain,
         IGrainStorageTestGrain_GuidExtendedKey, IGrainStorageTestGrain_LongExtendedKey
     {
@@ -62,7 +65,7 @@ namespace UnitTests.PersistentState.Grains
         public Task<string> GetExtendedKeyValue()
         {
             string extKey;
-            var pk = this.GetPrimaryKey(out extKey);
+            _ = this.GetPrimaryKey(out extKey);
             return Task.FromResult(extKey);
         }
 

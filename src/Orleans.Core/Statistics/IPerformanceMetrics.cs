@@ -197,7 +197,7 @@ namespace Orleans.Runtime
         /// <summary>
         /// Unique Id for the grain.
         /// </summary>
-        public IGrainIdentity GrainIdentity { get; set; }
+        public GrainId GrainId { get; set; }
 
         /// <summary>
         /// The grains Category
@@ -234,7 +234,7 @@ namespace Orleans.Runtime
                 + "   GrainClassTypeName={6}" + Environment.NewLine
                 + "   LocalActivations:" + Environment.NewLine
                 + "{7}." + Environment.NewLine,
-                    Grain.ToDetailedString(),                                   // {0}
+                    Grain.ToString(),                                   // {0}
                     SiloName,                                                   // {1}
                     SiloAddress.ToLongString(),                                 // {2}
                     Utils.EnumerableToString(LocalCacheActivationAddresses),    // {3}

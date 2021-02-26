@@ -1,45 +1,32 @@
-using Orleans.CodeGeneration;
 using Orleans.Messaging;
 using Orleans.Runtime;
 
 namespace Orleans.ClientObservers
 {
-    [TypeCodeOverride(ClientGatewayObserver.InterfaceId)]
     internal interface IClientGatewayObserver : IGrainObserver
     {
-        [MethodId(ClientGatewayObserver.MethodId)]
         void StopSendingToGateway(SiloAddress gateway);
     }
 
-    internal class ClientGatewayObserver : ClientObserver, IClientGatewayObserver
+    internal sealed class ClientGatewayObserver : ClientObserver, IClientGatewayObserver
     {
-        internal const int InterfaceId = 0x6C8D70A6;
-        internal const int MethodId = unchecked((int)0xFD72F2DC);
-        internal static GuidId Id => GuidId.FromParsableString("00000000-0000-0000-0000-000000000001");
+        private static readonly IdSpan ScopedId = IdSpan.Create(nameof(ClientGatewayObserver));
 
-        public override GuidId ObserverId => Id;
-
-        private GatewayManager gatewayManager;
+        private readonly GatewayManager gatewayManager;
 
         public ClientGatewayObserver(GatewayManager gatewayManager)
         {
             this.gatewayManager = gatewayManager;
         }
 
-        public void StopSendingToGateway(SiloAddress gateway)
-        {
-            this.gatewayManager.MarkAsUnavailableForSend(gateway);
-        }
+        public void StopSendingToGateway(SiloAddress gateway) => this.gatewayManager.MarkAsUnavailableForSend(gateway);
 
-        internal static Message CreateMessage(SiloAddress gateway)
+        internal override ObserverGrainId GetObserverGrainId(ClientGrainId clientId) => ObserverGrainId.Create(clientId, ScopedId);
+
+        internal static IClientGatewayObserver GetObserver(IInternalGrainFactory grainFactory, ClientGrainId clientId)
         {
-            return new Message
-            {
-                Direction = Message.Directions.OneWay,
-                SendingSilo = gateway,
-                TargetObserverId = Id,
-                BodyObject = new InvokeMethodRequest(InterfaceId, 0, MethodId, new object[] { gateway })
-            };
+            var observerId = ObserverGrainId.Create(clientId, ScopedId);
+            return grainFactory.GetGrain<IClientGatewayObserver>(observerId.GrainId);
         }
     }
 }

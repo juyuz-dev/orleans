@@ -16,7 +16,6 @@ namespace Orleans.Runtime
         public SiloAddress SiloAddress { get; }
         public SiloStatus Status { get; }
         public string Name { get; }
-
         public string Region { get; }
 
         public override bool Equals(object obj) => this.Equals(obj as ClusterMember);

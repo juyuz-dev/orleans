@@ -1,7 +1,10 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Orleans;
+using Orleans.Hosting;
+using Orleans.TestingHost;
 using TestExtensions;
 using UnitTests.GrainInterfaces;
 using Xunit;
@@ -14,6 +17,19 @@ namespace UnitTests.CancellationTests
 
         public class Fixture : BaseTestClusterFixture
         {
+            protected override void ConfigureTestCluster(TestClusterBuilder builder)
+            {
+                base.ConfigureTestCluster(builder);
+                builder.AddSiloBuilderConfigurator<SiloConfig>();
+            }
+
+            private class SiloConfig : ISiloConfigurator
+            {
+                public void Configure(ISiloBuilder siloBuilder)
+                {
+                    siloBuilder.ConfigureLogging(logging => logging.AddDebug());
+                }
+            }
         }
 
         public GrainCancellationTokenTests(Fixture fixture)
@@ -105,7 +121,7 @@ namespace UnitTests.CancellationTests
         {
             var grain = this.fixture.GrainFactory.GetGrain<ILongRunningTaskGrain<bool>>(Guid.NewGuid());
             var tcs = new GrainCancellationTokenSource();
-            var grainTask = grain.CancellationTokenCallbackThrow(tcs.Token);
+            _ = grain.CancellationTokenCallbackThrow(tcs.Token);
             await Task.Delay(TimeSpan.FromMilliseconds(100));
             try
             {
