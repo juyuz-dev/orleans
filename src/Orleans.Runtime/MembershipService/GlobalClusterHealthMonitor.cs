@@ -11,10 +11,9 @@ namespace Orleans.Runtime.MembershipService
             ILocalSiloDetails localSiloDetails,
             GlobalMembershipTableManager tableManager,
             ILogger<ClusterHealthMonitor> log,
-            IOptions<ClusterMembershipOptions> clusterMembershipOptions,
+            IOptionsMonitor<ClusterMembershipOptions> clusterMembershipOptions,
             IFatalErrorHandler fatalErrorHandler,
-            IServiceProvider serviceProvider,
-            IAsyncTimerFactory timerFactory) : base(localSiloDetails, tableManager, log, clusterMembershipOptions, fatalErrorHandler, serviceProvider, timerFactory)
+            IServiceProvider serviceProvider) : base(localSiloDetails, tableManager, log, clusterMembershipOptions, fatalErrorHandler, serviceProvider)
         {
         }
     }

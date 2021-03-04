@@ -464,7 +464,7 @@ namespace Orleans.Runtime
                         break;
                 }
             }
-            return String.Format("{0}{1}{2}{3}{4} {5}->{6} #{7}{8}",
+            return String.Format("{0}{1}{2}{3}{4} {5}->{6}{7} #{8}{9}",
                 IsReadOnly ? "ReadOnly " : "", //0
                 IsAlwaysInterleave ? "IsAlwaysInterleave " : "", //1
                 IsNewPlacement ? "NewPlacement " : "", // 2
@@ -472,8 +472,9 @@ namespace Orleans.Runtime
                 Direction, //4
                 String.Format("{0}{1}{2}", SendingSilo, SendingGrain, SendingActivation), //5
                 String.Format("{0}{1}{2}{3}", TargetSilo, TargetGrain, TargetActivation, TargetObserverId), //6
-                Id, //7
-                ForwardCount > 0 ? "[ForwardCount=" + ForwardCount + "]" : ""); //8
+                BodyObject is InvokeMethodRequest request ? $" {request.ToString()}" : string.Empty, // 7
+                Id, //8
+                ForwardCount > 0 ? "[ForwardCount=" + ForwardCount + "]" : ""); //9
         }
 
         internal void SetTargetPlacement(PlacementResult value)
@@ -532,10 +533,7 @@ namespace Orleans.Runtime
             timeInterval.Restart();
         }
 
-        public TimeSpan Elapsed
-        {
-            get { return timeInterval.Elapsed; }
-        }
+        public TimeSpan Elapsed => timeInterval == null ? TimeSpan.Zero : timeInterval.Elapsed;
 
         public static Message CreatePromptExceptionResponse(Message request, Exception exception)
         {
