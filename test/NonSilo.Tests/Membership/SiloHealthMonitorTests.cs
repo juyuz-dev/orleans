@@ -289,6 +289,6 @@ namespace NonSilo.Tests.Membership
 
         private static SiloAddress Silo(string value) => SiloAddress.FromParsableString(value);
 
-        private static ClusterMember Member(SiloAddress address, SiloStatus status) => new ClusterMember(address, status, address.ToString());
+        private static ClusterMember Member(SiloAddress address, SiloStatus status) => new ClusterMember(address, status, address.ToString(), address.ToString());
     }
 }

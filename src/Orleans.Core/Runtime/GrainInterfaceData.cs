@@ -8,7 +8,7 @@ namespace Orleans.Runtime
     /// Metadata for a grain interface
     /// </summary>
     [Serializable]
-    internal class GrainInterfaceData
+    public class GrainInterfaceData
     {
         [NonSerialized]
         private readonly Type iface;

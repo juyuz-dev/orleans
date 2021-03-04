@@ -11,12 +11,12 @@ namespace Orleans.Runtime.MembershipService
     {
         public GlobalClusterMembershipAgent(
             GlobalMembershipTableManager tableManager,
-            GlobalClusterHealthMonitor clusterHealthMonitor,
             ILocalSiloDetails localSilo,
             IFatalErrorHandler fatalErrorHandler,
             IOptions<ClusterMembershipOptions> options,
             ILogger<MembershipAgent> log,
-            IAsyncTimerFactory timerFactory) : base(tableManager, clusterHealthMonitor, localSilo, fatalErrorHandler, options, log, timerFactory)
+            IAsyncTimerFactory timerFactory,
+            IRemoteSiloProber siloProber) : base(tableManager, localSilo, fatalErrorHandler, options, log, timerFactory, siloProber)
         {
         }
     }

@@ -19,7 +19,7 @@ namespace Orleans.Runtime
     }
 
     [Serializable]
-    internal class GrainTypeResolver : IGrainTypeResolver, IOnDeserialized
+    public class GrainTypeResolver : IGrainTypeResolver, IOnDeserialized
     {
         private readonly Dictionary<string, GrainInterfaceData> typeToInterfaceData;
         private readonly Dictionary<int, GrainInterfaceData> table;

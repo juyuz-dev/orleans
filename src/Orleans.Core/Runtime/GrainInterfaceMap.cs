@@ -300,7 +300,7 @@ namespace Orleans.Runtime
             return this.globalPlacements.Contains(grainTypeCode);
         }
 
-        public IGrainTypeResolver GetGrainTypeResolver()
+        internal IGrainTypeResolver GetGrainTypeResolver()
         {
             return new GrainTypeResolver(
                 this.typeToInterfaceData,
