@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Orleans.CodeGeneration;
 using Orleans.GrainDirectory;
 
@@ -30,7 +29,7 @@ namespace Orleans.Runtime
 
         private readonly bool localTestMode;
         private readonly HashSet<string> loadedGrainAsemblies;
-		
+
 		private readonly PlacementStrategy defaultPlacementStrategy;
 
         internal IEnumerable<GrainClassData> SupportedGrainClassData
@@ -64,41 +63,17 @@ namespace Orleans.Runtime
         {
             foreach (var kvp in map.typeToInterfaceData)
             {
-                var otherId = kvp.Key;
-                var otherGrainInterfaceData = kvp.Value;
-
-                if (typeToInterfaceData.TryGetValue(kvp.Key, out var localGrainInterfaceData))
+                if (!typeToInterfaceData.ContainsKey(kvp.Key))
                 {
-                    // We already know this interface, let's merge the GrainInterfaceData
-                    foreach (var otherGrainClassData in otherGrainInterfaceData.Implementations)
-                    {
-                        localGrainInterfaceData.AddImplementation(otherGrainClassData);
-                    }
-                }
-                else
-                {
-                    // Interface unknown until now
-                    typeToInterfaceData.Add(kvp.Key, new GrainInterfaceData(kvp.Value));
+                    typeToInterfaceData.Add(kvp.Key, kvp.Value);
                 }
             }
 
             foreach (var kvp in map.table)
             {
-                var otherId = kvp.Key;
-                var otherGrainInterfaceData = kvp.Value;
-
-                if (table.TryGetValue(kvp.Key, out var localGrainInterfaceData))
+                if (!table.ContainsKey(kvp.Key))
                 {
-                    // We already know this interface, let's merge the GrainInterfaceData
-                    foreach (var otherGrainClassData in otherGrainInterfaceData.Implementations)
-                    {
-                        localGrainInterfaceData.AddImplementation(otherGrainClassData);
-                    }
-                }
-                else
-                {
-                    // Interface unknown until now
-                    table.Add(kvp.Key, new GrainInterfaceData(kvp.Value));
+                    table.Add(kvp.Key, kvp.Value);
                 }
             }
 
@@ -195,7 +170,7 @@ namespace Orleans.Runtime
             typeToInterfaceData[interfaceTypeKey] = grainInterfaceData;
 
             // If we are adding a concrete implementation of a generic interface
-            // add also the latter to the map: GrainReference and InvokeMethodRequest 
+            // add also the latter to the map: GrainReference and InvokeMethodRequest
             // always use the id of the generic one
             if (iface.IsConstructedGenericType)
                 GetOrAddGrainInterfaceData(iface.GetGenericTypeDefinition(), true);
@@ -266,7 +241,7 @@ namespace Orleans.Runtime
             {
                 return interfaceType.GetGenericTypeDefinition().AssemblyQualifiedName;
             }
-            else 
+            else
             {
                 return TypeUtils.GetTemplatedName(
                             TypeUtils.GetFullName(interfaceType),
@@ -300,7 +275,7 @@ namespace Orleans.Runtime
             return this.globalPlacements.Contains(grainTypeCode);
         }
 
-        internal IGrainTypeResolver GetGrainTypeResolver()
+        public IGrainTypeResolver GetGrainTypeResolver()
         {
             return new GrainTypeResolver(
                 this.typeToInterfaceData,
